@@ -49,3 +49,67 @@ contracts. The LoRA shifts the WHOLE distribution, not just the quiz artifact.
 
 Verdict of record: **Round 1 did not beat mini** (broke structural generation).
 The harness still ties mini; the weights campaign continues.
+
+## Round 2 — full-mix ORPO (2026-07-07, on the 32 GB M-series)
+
+- **Config:** ORPO, LoRA rank 8, β 0.1, batch 1, grad-checkpoint, seq 3072,
+  400 iters. Dataset: `data/preference-pairs-full.jsonl` (974 pairs — 133
+  whole-lesson + 353 mc-item + 488 key-term; the mix, not atoms alone, per the
+  Round-1 lesson). Adapter in `adapters-round2/adapters.safetensors` (52 MB);
+  the 200-iter checkpoint is also kept (`adapters-round2/checkpoint-0000200`).
+- **Training:** healthy, no OOM (the memory-safe config fits — peak 27.7 GB, the
+  full pairs at seq 3072). The 32 GB box CAN train the mix; the OOM note in
+  README/train.sh was the batch-2 config only.
+- **Capability gate: PASSED — decisively better than Round 1.** A direct
+  grammar-constrained probe (OpenAI `response_format: json_schema`, the real
+  course-skeleton schema, `max_tokens: 6000`) produced a **VALID, CLOSED,
+  schema-compliant skeleton — 7 sessions, 7 assessments, all closed — in 28.3
+  seconds.** On a kernel prompt it wrote genuinely good content: facts, key
+  terms *with misconception + correction fields*, and a worked example. Round 1
+  ran away and truncated; Round 2 closes cleanly and writes well. The adapter
+  is NOT slow (28 s) and NOT structurally broken.
+- **Gauntlet (full CourseMapper compile vs mini): BLOCKED — but NOT by the
+  weights.** The app-path skeleton call falls back to prose
+  (`skeleton-unparseable`). Root cause isolated to the SERVING path, not the
+  adapter: the app requests the skeleton at `max_tokens: 16000`; serve_g4
+  returns the whole grammar-constrained response as one buffered chunk after
+  ~6-7 min; the CourseMapper/crucible local-provider stream has a
+  `STREAM_INACTIVITY_TIMEOUT_MS` / `DEFAULT_PROVIDER_TIMEOUT_MS` that fires
+  before that single chunk lands, so the client reads a partial (dangling-comma)
+  body and falls back. Proof it is the timeout, not the model: the byte-identical
+  request at `max_tokens: 6000` over a client with a long (870 s) read timeout
+  **closes valid in 28 s** (above). The instrumented shim confirmed the schema
+  arrived intact (`rfType=json_schema, hasInnerSchema=true, contractSchema=true,
+  maxTok=16000`) — so the grammar contract was built; the generation was simply
+  cut before completion.
+
+### Serving note (important, corrects a scare)
+
+Grammar-constrained decoding on the g4 route **does work.** In `mlx_vlm` 0.6.3,
+`generate()` has no `logits_processors` kwarg, but it forwards `**kwargs`
+through `stream_generate` → `generate_step` (dispatch), which DOES accept and
+apply `logits_processors`. A short probe confirmed enforcement: prompted for a
+`{"lessons":...}` object under the skeleton schema, the grammar FORCED
+`{"course":...}` instead. (An earlier "grammar is a silent no-op" hypothesis
+was wrong — it came from misattributing a leftover kernel-call body, which
+legitimately uses a lessons-array contract, to a skeleton probe.)
+
+### The lesson (→ Round 3, on the bigger machine)
+
+Round 2's adapter is **proven capable in isolation and writes good content.**
+Beating mini is now gated on a SERVING fix, not more training. Do these in order:
+
+1. **Unblock the compile (highest value, no retraining needed).** Any one of:
+   (a) lower the local skeleton budget to ~4-6 k tokens (it closes there),
+   (b) raise the crucible/local-provider stream timeout, or
+   (c) make serve_g4 STREAM tokens so the inactivity timer never fires.
+   Then the mix adapter should compile a full course.
+2. **Only then measure vs mini** — pooled ≥12-seat judge panel; adopt iff mean
+   > 6.08 AND frozen benches hold (PLAN.md Step 3).
+3. **If a quiz gap remains after a clean compile,** the Round-1 corpus levers
+   still apply (more mc-item pairs, budget-aware "chosen" lengths).
+
+Verdict of record: **Round 2 has NOT yet produced a full vs-mini judged number**
+— the compile is blocked by a client-timeout serving bug, not the weights. The
+adapter itself is the strongest artifact so far: valid structured output + good
+content at $0. The next machine should fix the serving path first, then judge.
