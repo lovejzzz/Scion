@@ -1,0 +1,9 @@
+# Scion training + serving deps — Apple Silicon (MLX) only.
+# Create the venv with:  python3.13 -m venv .venv && ./.venv/bin/pip install -r requirements.txt
+mlx==0.31.2
+mlx-metal==0.31.2
+mlx-lm==0.31.3
+mlx-vlm==0.6.3
+llguidance==1.7.6
+transformers==5.13.0
+datasets==5.0.0
