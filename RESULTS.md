@@ -68,20 +68,31 @@ The harness still ties mini; the weights campaign continues.
   terms *with misconception + correction fields*, and a worked example. Round 1
   ran away and truncated; Round 2 closes cleanly and writes well. The adapter
   is NOT slow (28 s) and NOT structurally broken.
-- **Gauntlet (full CourseMapper compile vs mini): BLOCKED — but NOT by the
-  weights.** The app-path skeleton call falls back to prose
-  (`skeleton-unparseable`). Root cause isolated to the SERVING path, not the
-  adapter: the app requests the skeleton at `max_tokens: 16000`; serve_g4
-  returns the whole grammar-constrained response as one buffered chunk after
-  ~6-7 min; the CourseMapper/crucible local-provider stream has a
-  `STREAM_INACTIVITY_TIMEOUT_MS` / `DEFAULT_PROVIDER_TIMEOUT_MS` that fires
-  before that single chunk lands, so the client reads a partial (dangling-comma)
-  body and falls back. Proof it is the timeout, not the model: the byte-identical
-  request at `max_tokens: 6000` over a client with a long (870 s) read timeout
-  **closes valid in 28 s** (above). The instrumented shim confirmed the schema
-  arrived intact (`rfType=json_schema, hasInnerSchema=true, contractSchema=true,
-  maxTok=16000`) — so the grammar contract was built; the generation was simply
-  cut before completion.
+- **Gauntlet (full CourseMapper compile vs mini): BLOCKED — and the blocker is
+  the adapter's behavior on the app's REAL prompt, not a config tweak.** The
+  app-path skeleton call falls back to prose (`skeleton-unparseable`). It was
+  isolated exhaustively:
+  - Instrumented shim confirmed the request arrives intact
+    (`rfType=json_schema, hasInnerSchema=true, contractSchema=true,
+    maxTok=16000`) — the grammar contract IS built.
+  - Cold-start ruled out: a warmed serve_g4 still fell back.
+  - `max_tokens` ruled out: a direct probe at 6000 AND 16000 both closed valid.
+  - **Client timeout ruled out** (this corrects an earlier hypothesis): the
+    app's EXACT captured skeleton prompt (system 4492 chars / user 696 chars),
+    replayed through raw `node:http` with an 870 s read timeout, **ran 605.8 s
+    (~10 min) and STILL truncated** at 2705 chars / ~673 tokens (dangling comma
+    at the 5th assessment). The client waited the full time; serve_g4 itself
+    returned the truncated body.
+  - **What's left is prompt-dependent, model-side pathology:** on a *simple*
+    skeleton prompt the adapter closes a valid 7-session skeleton in ~25 s
+    (0.036 s/tok); on the app's real 4492-char extraction-style system prompt it
+    generates at **0.9 s/tok (25× slower) and truncates**. Same adapter, same
+    grammar, same budget — only the prompt differs. The 10-min-per-skeleton
+    speed alone is untenable vs mini (seconds), truncation aside.
+
+  So the round-2 adapter is "proven capable" ONLY on direct/simple prompts; on
+  the app's actual authoring prompts it degenerates (slow + truncating). That is
+  a real capability gap, not a serving misconfiguration.
 
 ### Serving note (important, corrects a scare)
 
@@ -96,20 +107,29 @@ legitimately uses a lessons-array contract, to a skeleton probe.)
 
 ### The lesson (→ Round 3, on the bigger machine)
 
-Round 2's adapter is **proven capable in isolation and writes good content.**
-Beating mini is now gated on a SERVING fix, not more training. Do these in order:
+Round 2's adapter writes good content and closes clean structure on simple
+prompts, but **degenerates on the app's real 4.5 KB extraction-style skeleton
+prompt** (0.9 s/tok, truncates). The gap is prompt-robustness + speed, not raw
+capability. Diagnose and fix in this order:
 
-1. **Unblock the compile (highest value, no retraining needed).** Any one of:
-   (a) lower the local skeleton budget to ~4-6 k tokens (it closes there),
-   (b) raise the crucible/local-provider stream timeout, or
-   (c) make serve_g4 STREAM tokens so the inactivity timer never fires.
-   Then the mix adapter should compile a full course.
-2. **Only then measure vs mini** — pooled ≥12-seat judge panel; adopt iff mean
-   > 6.08 AND frozen benches hold (PLAN.md Step 3).
-3. **If a quiz gap remains after a clean compile,** the Round-1 corpus levers
-   still apply (more mc-item pairs, budget-aware "chosen" lengths).
+1. **Root-cause the 25× slowdown FIRST (it is the real blocker).** Why does the
+   same adapter+grammar run 0.036 s/tok on a short prompt and 0.9 s/tok on the
+   4492-char one? Suspects to rule out on the training box: llguidance mask cost
+   scaling, KV/context handling in serve_g4, an MLX recompile per input shape,
+   or the adapter fighting the grammar (prose-leaning logits → heavy masking).
+   Instrument serve_g4 with per-token timing + the actual `constrained` tier it
+   used for the call.
+2. **Cheap mitigations to try in parallel:** simplify/shorten the LOCAL skeleton
+   system prompt (the adapter handles direct prompts well); or author the
+   skeleton in smaller chunks; or verify the real schema doesn't silently fall
+   to the permissive grammar for this specific call.
+3. **Only once a full course compiles in reasonable time, measure vs mini** —
+   pooled ≥12-seat judge panel; adopt iff mean > 6.08 AND frozen benches hold
+   (PLAN.md Step 3). Expect the Round-1 quiz gap may still apply.
 
-Verdict of record: **Round 2 has NOT yet produced a full vs-mini judged number**
-— the compile is blocked by a client-timeout serving bug, not the weights. The
-adapter itself is the strongest artifact so far: valid structured output + good
-content at $0. The next machine should fix the serving path first, then judge.
+Verdict of record: **Round 2 has NOT produced a full vs-mini judged number, and
+does NOT beat mini.** It is the strongest artifact so far (valid structured
+output + good content at $0 on direct prompts), but it is not yet usable in the
+real compile: on the app's actual skeleton prompt it is ~10 min/skeleton and
+truncates. The next machine should root-cause the slowdown, not just retune the
+corpus.
