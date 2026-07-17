@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from scion.gguf_evaluation import coursemapper_gemma4_prompt
 from scion.local_evaluation import _coursemapper_json_text, compare_evaluations
 
 
@@ -12,6 +13,12 @@ def test_coursemapper_transport_repair_only_removes_outer_fences() -> None:
     assert _coursemapper_json_text('before\n```json\n{"answer":true}\n```') == (
         'before\n```json\n{"answer":true}'
     )
+
+
+def test_gguf_prompt_matches_coursemapper_text_format() -> None:
+    assert coursemapper_gemma4_prompt(
+        [{"role": "system", "content": "Rules"}, {"role": "user", "content": "Question"}]
+    ) == "<|turn>system\nRules<turn|>\n<|turn>user\nQuestion<turn|>\n<|turn>model\n"
 
 
 def test_paired_comparison_requires_a_real_locked_improvement(tmp_path: Path) -> None:

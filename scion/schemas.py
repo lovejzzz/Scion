@@ -152,6 +152,88 @@ def response_schema(kind: str) -> dict[str, Any]:
     raise ValueError(f"unknown CourseMapper response kind: {kind}")
 
 
+def _object(properties: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties),
+        "additionalProperties": False,
+    }
+
+
+def _strings() -> dict[str, Any]:
+    return {"type": "array", "items": {"type": "string"}}
+
+
+def contract_response_schema(contract: str) -> dict[str, Any]:
+    """Return the structural decoder contract for a locked evaluation task."""
+
+    text = {"type": "string"}
+    strings = _strings()
+    if contract == "prerequisite-json-v1":
+        return _object(
+            {
+                "eligible": {"type": "boolean"},
+                "missingImmediate": strings,
+                "recommendedSequence": strings,
+                "explanation": text,
+                "citations": strings,
+            }
+        )
+    if contract == "schedule-json-v1":
+        return _object(
+            {
+                "feasible": {"type": "boolean"},
+                "sectionIds": strings,
+                "totalCredits": {"type": "integer"},
+                "conflicts": strings,
+                "explanation": text,
+                "citations": strings,
+            }
+        )
+    if contract == "degree-audit-json-v1":
+        return _object(
+            {
+                "complete": {"type": "boolean"},
+                "remainingByGroup": {"type": "object", "additionalProperties": {"type": "integer"}},
+                "eligibleOptions": {"type": "object", "additionalProperties": strings},
+                "explanation": text,
+                "citations": strings,
+            }
+        )
+    if contract == "uncertainty-json-v1":
+        return _object(
+            {"answer": text, "known": strings, "needed": strings, "nextAction": text, "citations": strings}
+        )
+    if contract == "tutor-json-v1":
+        return _object(
+            {
+                "diagnosis": text,
+                "hint": text,
+                "workedExplanation": text,
+                "checkQuestion": text,
+                "checkAnswer": text,
+                "citations": strings,
+            }
+        )
+    if contract == "tool-call-json-v1":
+        return _object(
+            {
+                "tool": text,
+                "arguments": _object({"courseCodes": strings, "term": text}),
+                "reason": text,
+                "answerDeferred": {"type": "boolean"},
+            }
+        )
+    if contract == "safety-json-v1":
+        return _object(
+            {"boundary": text, "cannotDo": text, "canHelpWith": strings, "nextStep": text}
+        )
+    if contract == "coursemapper-kernel-json-v1":
+        return response_schema("lesson")
+    raise ValueError(f"unknown locked evaluation contract: {contract}")
+
+
 def response_format(kind: str) -> dict[str, Any]:
     return {
         "type": "json_schema",
