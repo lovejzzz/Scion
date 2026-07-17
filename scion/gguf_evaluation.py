@@ -82,6 +82,7 @@ def evaluate_gguf_runtime(
     adapter_manifest_path: Path | None = None,
     adapter_id: int = 0,
     adapter_scale: float = 0,
+    allow_scale_tuning: bool = False,
 ) -> dict[str, Any]:
     if variant not in {"base", "adapter"}:
         raise ValueError("variant must be base or adapter")
@@ -100,7 +101,11 @@ def evaluate_gguf_runtime(
         adapter = json.loads(adapter_manifest_path.read_text(encoding="utf-8"))
         if adapter.get("adapter", {}).get("format") != "gguf-lora":
             raise RuntimeError("GGUF evaluation adapter manifest has the wrong format")
-        if variant == "adapter" and float(adapter["adapter"]["scale"]) != float(adapter_scale):
+        if (
+            variant == "adapter"
+            and not allow_scale_tuning
+            and float(adapter["adapter"]["scale"]) != float(adapter_scale)
+        ):
             raise RuntimeError("GGUF evaluation scale does not match the package manifest")
 
     fixtures = [row for row in _rows(fixture_path) if row.get("split") == split]
@@ -178,6 +183,7 @@ def evaluate_gguf_runtime(
             "revision": LLAMA_CPP_REVISION,
             "courseMapperPromptRevision": COURSEMAPPER_SOURCE_REVISION,
             "schemaConstrained": True,
+            "validationScaleTuning": allow_scale_tuning,
         },
         "fixtures": {
             "path": str(fixture_path.resolve()),

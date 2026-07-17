@@ -18,6 +18,7 @@ def main() -> None:
     parser.add_argument("--adapter-manifest", type=Path)
     parser.add_argument("--adapter-id", type=int, default=0)
     parser.add_argument("--adapter-scale", type=float, default=0)
+    parser.add_argument("--allow-scale-tuning", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -32,6 +33,7 @@ def main() -> None:
                 adapter_manifest_path=args.adapter_manifest,
                 adapter_id=args.adapter_id,
                 adapter_scale=args.adapter_scale,
+                allow_scale_tuning=args.allow_scale_tuning,
             ),
             indent=2,
             sort_keys=True,
