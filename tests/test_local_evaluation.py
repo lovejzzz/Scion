@@ -3,7 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from scion.local_evaluation import compare_evaluations
+from scion.local_evaluation import _coursemapper_json_text, compare_evaluations
+
+
+def test_coursemapper_transport_repair_only_removes_outer_fences() -> None:
+    assert _coursemapper_json_text('```json\n{"answer":true}\n```') == '{"answer":true}'
+    assert _coursemapper_json_text('```\n{"answer":true}\n```') == '{"answer":true}'
+    assert _coursemapper_json_text('before\n```json\n{"answer":true}\n```') == (
+        'before\n```json\n{"answer":true}'
+    )
 
 
 def test_paired_comparison_requires_a_real_locked_improvement(tmp_path: Path) -> None:

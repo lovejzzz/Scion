@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,6 +16,43 @@ from .task_contracts import validate_task_response
 
 def _rows(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _coursemapper_json_text(text: str) -> str:
+    """Apply CourseMapper's conservative Markdown-fence transport repair.
+
+    This intentionally mirrors the first, lossless stage of
+    ``repairPublicScionJson`` at the pinned CourseMapper revision. It does not
+    repair malformed JSON or change semantic fields.
+    """
+
+    repaired = re.sub(r"^```json\s*", "", str(text or ""), count=1, flags=re.IGNORECASE)
+    repaired = re.sub(r"^```\s*", "", repaired, count=1, flags=re.IGNORECASE)
+    repaired = re.sub(r"```\s*$", "", repaired, count=1, flags=re.IGNORECASE)
+    return repaired.strip()
+
+
+def _summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
+    by_category: dict[str, dict[str, Any]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in results:
+        grouped[row["category"]].append(row)
+    for category, rows in sorted(grouped.items()):
+        passed = sum(row["status"] == "pass" for row in rows)
+        by_category[category] = {
+            "count": len(rows),
+            "passCount": passed,
+            "passRate": passed / len(rows),
+            "issueCount": sum(len(row["issues"]) for row in rows),
+        }
+    pass_count = sum(row["status"] == "pass" for row in results)
+    return {
+        "passCount": pass_count,
+        "passRate": pass_count / len(results) if results else 0,
+        "issueCount": sum(len(row["issues"]) for row in results),
+        "issueKinds": dict(sorted(Counter(issue for row in results for issue in row["issues"]).items())),
+        "byCategory": by_category,
+    }
 
 
 def evaluate_locked_tasks(
@@ -64,18 +102,7 @@ def evaluate_locked_tasks(
         "".join(json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n" for row in results),
         encoding="utf-8",
     )
-    by_category: dict[str, dict[str, Any]] = {}
-    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for row in results:
-        grouped[row["category"]].append(row)
-    for category, rows in sorted(grouped.items()):
-        passed = sum(row["status"] == "pass" for row in rows)
-        by_category[category] = {
-            "count": len(rows),
-            "passCount": passed,
-            "passRate": passed / len(rows),
-            "issueCount": sum(len(row["issues"]) for row in rows),
-        }
+    summary = _summarize_results(results)
     report = {
         "schemaVersion": 1,
         "protocol": "scion-locked-local-evaluation-v1",
@@ -96,11 +123,7 @@ def evaluate_locked_tasks(
             "count": len(fixtures),
             "trainingUseForbidden": True,
         },
-        "passCount": sum(row["status"] == "pass" for row in results),
-        "passRate": sum(row["status"] == "pass" for row in results) / len(results) if results else 0,
-        "issueCount": sum(len(row["issues"]) for row in results),
-        "issueKinds": dict(sorted(Counter(issue for row in results for issue in row["issues"]).items())),
-        "byCategory": by_category,
+        **summary,
         "resultsSha256": hashlib.sha256(result_path.read_bytes()).hexdigest(),
         "meanTokensPerSecond": (
             sum(row["metrics"]["generationTokensPerSecond"] for row in results) / len(results)
@@ -108,6 +131,87 @@ def evaluate_locked_tasks(
             else 0
         ),
         "peakMemoryGb": max((row["metrics"]["peakMemoryGb"] for row in results), default=0),
+    }
+    (output_dir / "report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return report
+
+
+def rescore_coursemapper_runtime(
+    *,
+    fixture_path: Path,
+    source_report_path: Path,
+    source_results_path: Path,
+    output_dir: Path,
+) -> dict[str, Any]:
+    """Rescore saved generations after CourseMapper's lossless fence repair."""
+
+    source_report = json.loads(source_report_path.read_text(encoding="utf-8"))
+    if source_report.get("protocol") != "scion-locked-local-evaluation-v1":
+        raise RuntimeError("runtime rescore requires a locked local evaluation")
+    fixtures = [row for row in _rows(fixture_path) if row.get("split") == "heldout"]
+    source_rows = _rows(source_results_path)
+    if [row["id"] for row in source_rows] != [row["id"] for row in fixtures]:
+        raise RuntimeError("runtime rescore fixture IDs do not match the locked source results")
+    fixture_sha256 = hashlib.sha256(fixture_path.read_bytes()).hexdigest()
+    if (
+        source_report.get("fixtures", {}).get("sha256") != fixture_sha256
+        or source_report.get("fixtures", {}).get("count") != len(fixtures)
+    ):
+        raise RuntimeError("runtime rescore fixture receipt does not match")
+
+    results = []
+    for fixture, source in zip(fixtures, source_rows, strict=True):
+        if source.get("response") is not None:
+            candidate: str | dict[str, Any] = source["response"]
+            normalization = "already-parsed"
+        else:
+            candidate = _coursemapper_json_text(source.get("rawText") or "")
+            normalization = "coursemapper-fence-strip"
+        parsed, issues = validate_task_response(fixture["contract"], candidate, fixture["oracle"])
+        results.append(
+            {
+                "id": fixture["id"],
+                "category": fixture["category"],
+                "contract": fixture["contract"],
+                "status": "pass" if not issues else "fail",
+                "issues": issues,
+                "normalization": normalization,
+                "response": parsed,
+            }
+        )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    result_path = output_dir / "results.jsonl"
+    result_path.write_text(
+        "".join(json.dumps(row, separators=(",", ":"), sort_keys=True) + "\n" for row in results),
+        encoding="utf-8",
+    )
+    report = {
+        "schemaVersion": 1,
+        "protocol": "scion-coursemapper-runtime-normalized-evaluation-v1",
+        "generatedAt": datetime.now(UTC).isoformat(),
+        "tier": source_report["tier"],
+        "variant": source_report["variant"],
+        "model": source_report["model"],
+        "normalization": {
+            "id": "coursemapper-lossless-fence-repair-v1",
+            "scope": "transport-only",
+            "courseMapperRevision": "4f5bed3833f72494917e67c1a0c878af8c2b9a70",
+            "malformedJsonRepairUsed": False,
+            "semanticRepairUsed": False,
+        },
+        "fixtures": source_report["fixtures"],
+        **_summarize_results(results),
+        "resultsSha256": hashlib.sha256(result_path.read_bytes()).hexdigest(),
+        "sourceEvaluation": {
+            "reportSha256": hashlib.sha256(source_report_path.read_bytes()).hexdigest(),
+            "resultsSha256": hashlib.sha256(source_results_path.read_bytes()).hexdigest(),
+            "protocol": source_report["protocol"],
+        },
+        "meanTokensPerSecond": source_report["meanTokensPerSecond"],
+        "peakMemoryGb": source_report["peakMemoryGb"],
     }
     (output_dir / "report.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
