@@ -1,29 +1,22 @@
+from __future__ import annotations
+
+import json
 from pathlib import Path
 
-from scion.training import parse_training_metrics
+import pytest
+
+from scion.training import _dataset_identity
 
 
-def test_parse_training_metrics(tmp_path: Path) -> None:
-    log = tmp_path / "training.log"
-    log.write_text(
-        "Iter 1: Val loss 15.306, Val took 1.0s\n"
-        "Iter 400: Val loss 11.124, Val took 1.0s\n"
-        "Iter 400: Train loss 11.297, Learning Rate 1e-5, Trained Tokens 119818, "
-        "Peak mem 92.463 GB\n"
-        "Test loss 11.262, Test ppl 77815.093.\n",
-        encoding="utf-8",
-    )
-
-    assert parse_training_metrics(log) == {
-        "validationLoss": [
-            {"iteration": 1, "loss": 15.306},
-            {"iteration": 400, "loss": 11.124},
-        ],
-        "finalTrain": {
-            "iteration": 400,
-            "loss": 11.297,
-            "trainedTokens": 119818,
-            "reportedPeakMemoryGb": 92.463,
-        },
-        "test": {"loss": 11.262, "perplexity": 77815.093},
-    }
+def test_dataset_identity_requires_all_three_nonempty_splits(tmp_path: Path) -> None:
+    (tmp_path / "train.jsonl").write_text(json.dumps({"chosen": [], "rejected": []}) + "\n")
+    with pytest.raises(RuntimeError, match="validation"):
+        _dataset_identity(tmp_path)
+    (tmp_path / "validation.jsonl").write_text(json.dumps({"chosen": [], "rejected": []}) + "\n")
+    with pytest.raises(RuntimeError, match="test"):
+        _dataset_identity(tmp_path)
+    (tmp_path / "test.jsonl").write_text(json.dumps({"chosen": [], "rejected": []}) + "\n")
+    identity = _dataset_identity(tmp_path)
+    assert identity["train"]["rows"] == 1
+    assert identity["validation"]["rows"] == 1
+    assert identity["test"]["rows"] == 1

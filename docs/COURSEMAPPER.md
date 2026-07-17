@@ -1,36 +1,70 @@
 # CourseMapper integration
 
-CourseMapper already defines the required local provider contract in `src/lib/localProvider.js`:
+Scion Lite targets CourseMapper's existing adapter architecture:
 
-- endpoint: `http://127.0.0.1:8799`
-- model: `scion-1`
-- liveness: `GET /v1/models`
-- generation: `POST /v1/chat/completions`
-- structured output: OpenAI `response_format` is forwarded
-- streaming: supported by the runtime, although the Scion evaluator uses non-streaming calls
-
-Start the server from this repository:
-
-```bash
-scion serve \
-  --adapter artifacts/scion-bonsai-27b.gguf \
-  --llama-server .cache/PrismML-llama.cpp/build/bin/llama-server
+```text
+exact Gemma 4 E2B QAT base
+  + verified Scion GGUF LoRA
+  + scion-wllama-webgpu-jspi-v1
+  + CourseMapper schemas, tools, compiler, and rollback
 ```
 
-Then start CourseMapper normally and select **Local / Scion** in its model configuration. The
-provider is keyless. If another process owns port 8799, stop it before starting Scion; changing the
-port requires changing CourseMapper's local endpoint setting as well.
+The browser package contains only the adapter delta and receipts. CourseMapper downloads and caches the pinned
+3.35 GB base separately. Its schema-v3 `scion-adapter.json` declares:
 
-The serving command disables the Qwen thinking channel and uses deterministic decoding. This is
-intentional: CourseMapper expects the response body itself to be valid JSON, without reasoning text
-before or after it.
+- exact training base model and revision;
+- `gguf-lora` format and inference scale;
+- `scion-wllama-webgpu-jspi-v1` runtime compatibility;
+- dataset, training-plan, training-result, source-manifest, conversion, and file hashes;
+- research status with `promotable: false`;
+- a total package below 64 MiB and below two percent of the browser base.
 
-Before promoting an adapter, run:
+The MLX source package declares `mlx-lora-safetensors` and runtime `mlx-vlm`. Scion Pro is an MLX package only; it
+does not target the current E2B browser base.
+
+## Build and validate
+
+After the Lite adapter passes the locked comparison:
 
 ```bash
-scion smoke --output runs/bonsai-27b/coursemapper-smoke.json
+python scripts/package_mlx_adapter.py \
+  --tier lite \
+  --adapter-dir artifacts/scion-lite-mlx
+
+python scripts/package_browser_adapter.py \
+  --source-manifest artifacts/scion-lite-mlx/scion-adapter.json \
+  --dataset-manifest data/orpo/dataset-manifest.json \
+  --output-dir artifacts/scion-lite-browser \
+  --base-dir .cache/huggingface/models--google--gemma-4-E2B-it-qat-q4_0-unquantized/snapshots/1ca4dd94b623b6e0dd9da00c2239ab84b4f3e5ce
 ```
 
-The smoke gate checks browser CORS preflight, calls model discovery, then uses CourseMapper's
-schema-constrained SSE request shape with model `scion-1`. It requires a complete `[DONE]` stream
-and admits the returned assessment item through Scion's CourseMapper contract validator.
+Validate with CourseMapper's actual current code, not a duplicated approximation:
+
+```bash
+node scripts/validate_coursemapper_package.mjs \
+  --coursemapper ../CourseMapper \
+  --repo-root . \
+  --tier lite \
+  --manifest artifacts/scion-lite-mlx/scion-adapter.json \
+  --dataset-manifest data/orpo/dataset-manifest.json \
+  --verify-training-run
+
+node scripts/validate_coursemapper_package.mjs \
+  --coursemapper ../CourseMapper \
+  --repo-root . \
+  --tier lite \
+  --manifest artifacts/scion-lite-browser/scion-adapter.json \
+  --dataset-manifest data/orpo/dataset-manifest.json
+```
+
+The first command verifies the dataset firewall, clean training run, manifest, and all package bytes. The second
+verifies the converted browser manifest and every inherited file. Browser/device activation remains a separate
+CourseMapper qualification step: a research package must not be presented as promoted merely because conversion
+worked.
+
+## Product responsibilities
+
+The learned adapter is only one layer of the system. CourseMapper must continue to own current course retrieval,
+source presentation, schema validation, tool authorization, answer-key checks, bounded repair, visible user edits,
+export integrity, and exact base-only rollback. If the adapter is unavailable or fails validation, CourseMapper
+should remain usable with its pinned base-only path.

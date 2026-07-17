@@ -1,0 +1,33 @@
+{
+  "admittedRows": 32,
+  "byCategory": {
+    "coursemapper-kernel": 4,
+    "degree-audit": 4,
+    "prerequisite-reasoning": 4,
+    "safe-education": 4,
+    "schedule-constraints": 4,
+    "tool-use": 4,
+    "tutoring": 4,
+    "uncertainty-grounding": 4
+  },
+  "excludedRows": 0,
+  "generatedAt": "2026-07-17T19:00:32.819154+00:00",
+  "meanGenerationTokensThisRun": 351.2894736842105,
+  "newlyAdmittedRows": 32,
+  "newlyExcludedRows": 0,
+  "output": "/Users/mengyingli/CodexWorkSpace/Scion/data/teacher/validation.jsonl",
+  "outputSha256": "28553d676b360857ddce1bb45b7d1c5011d64cd57dcc4e4032fb02847348ec4e",
+  "peakMemoryGbThisRun": 36.906698302,
+  "protocol": "scion-local-teacher-corpus-v1",
+  "requestedRows": 32,
+  "schemaVersion": 1,
+  "source": "/Users/mengyingli/CodexWorkSpace/Scion/data/seeds/validation.jsonl",
+  "sourceSha256": "65ec002b8b3e6e334bb82d2a277f5adf55d49b2de77899844db9e9fbd3523603",
+  "split": "validation",
+  "teacher": {
+    "closedApiOutputUsed": false,
+    "license": "Apache-2.0",
+    "modelId": "mlx-community/Qwen3.6-27B-8bit",
+    "revision": "c5a593c1475a746e43a543b0a02bd2b357e5745f"
+  }
+}

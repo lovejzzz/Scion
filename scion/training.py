@@ -1,4 +1,4 @@
-"""Prepare the exact Bonsai checkpoint and launch receipt-bound MLX QLoRA."""
+"""Receipt-bound Gemma 4 ORPO training for Scion Lite and Pro."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import hashlib
 import importlib.metadata
 import json
 import platform
-import re
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -16,270 +15,422 @@ from typing import Any
 from huggingface_hub import snapshot_download
 
 from .constants import (
+    MAX_LITE_BROWSER_ARTIFACT_BYTES,
     MAX_SCION_ARTIFACT_BYTES,
-    MLX_LM_REVISION,
     MLX_LM_VERSION,
-    SCION_VERSION,
-    TRAIN_BASE_ARCHITECTURE,
-    TRAIN_BASE_ID,
-    TRAIN_BASE_REVISION,
+    MLX_VERSION,
+    MLX_VLM_VERSION,
+    TRANSFORMERS_VERSION,
 )
-from .dataset import sha256_file
-from .mlx_lora import SEQUENCE_BUCKETS
-
-_NUMBER = r"[0-9]+(?:\.[0-9]+)?"
-_VAL_METRIC = re.compile(rf"Iter (\d+): Val loss ({_NUMBER})")
-_TRAIN_METRIC = re.compile(
-    rf"Iter (\d+): Train loss ({_NUMBER}).*Trained Tokens (\d+), Peak mem ({_NUMBER}) GB"
-)
-_TEST_METRIC = re.compile(rf"Test loss ({_NUMBER}), Test ppl ({_NUMBER})")
+from .model_registry import student_pin
+from .token_audit import audit_orpo_lengths
 
 
-def _json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"expected a JSON object: {path}")
+def _stable_json(value: Any) -> str:
+    normalized = [_stable_value(item) for item in value] if isinstance(value, list) else _stable_value(value)
+    return json.dumps(normalized, separators=(",", ":"), sort_keys=True)
+
+
+def _stable_value(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_stable_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _stable_value(value[key]) for key in sorted(value)}
     return value
 
 
-def _require_apple_silicon() -> None:
-    if platform.system() != "Darwin" or platform.machine() != "arm64":
-        raise RuntimeError("MLX QLoRA preparation and training require an Apple Silicon Mac")
+def _sha256_value(value: Any) -> str:
+    return hashlib.sha256(_stable_json(value).encode()).hexdigest()
 
 
-def resolve_training_snapshot(cache_dir: Path, *, local_files_only: bool = False) -> Path:
-    snapshot = Path(
+def _repository_identity(repo_root: Path) -> dict[str, Any]:
+    def git(*args: str) -> str:
+        return subprocess.check_output(["git", *args], cwd=repo_root, text=True).strip()
+
+    status = git("status", "--porcelain", "--untracked-files=all")
+    if status:
+        raise RuntimeError("training repository must be clean and committed before a run")
+    return {
+        "commit": git("rev-parse", "HEAD^{commit}"),
+        "tree": git("rev-parse", "HEAD^{tree}"),
+        "dirty": False,
+    }
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def resolve_student_snapshot(tier: str, cache_dir: Path, *, local_files_only: bool = False) -> Path:
+    pin = student_pin(tier)
+    path = Path(
         snapshot_download(
-            repo_id=TRAIN_BASE_ID,
-            revision=TRAIN_BASE_REVISION,
+            pin.model_id,
+            revision=pin.revision,
             cache_dir=cache_dir,
             local_files_only=local_files_only,
         )
     ).resolve()
-    if snapshot.name != TRAIN_BASE_REVISION:
-        raise RuntimeError(f"resolved mutable or unexpected base snapshot: {snapshot}")
-    config = _json(snapshot / "config.json")
-    if config.get("architectures") != [TRAIN_BASE_ARCHITECTURE] or config.get("model_type") != "qwen3_5":
-        raise RuntimeError("resolved checkpoint is not the pinned Bonsai Qwen3.5 architecture")
-    return snapshot
+    if path.name != pin.revision:
+        raise RuntimeError(f"resolved mutable snapshot: {path}")
+    config = json.loads((path / "config.json").read_text(encoding="utf-8"))
+    if config.get("model_type") != "gemma4":
+        raise RuntimeError(f"student base is not Gemma 4: {path}")
+    return path
 
 
-def verify_quantized_training_base(path: Path) -> dict[str, Any]:
-    config = _json(path / "config.json")
-    quantization = (
-        (config.get("text_config") or config).get("quantization") or config.get("quantization") or {}
+def _versions() -> dict[str, str]:
+    names = (
+        "mlx",
+        "mlx-lm",
+        "mlx-vlm",
+        "transformers",
+        "datasets",
+        "numpy",
+        "huggingface-hub",
+        "safetensors",
+        "pyarrow",
+        "tokenizers",
+        "torch",
     )
-    if config.get("model_type") != "qwen3_5":
-        raise RuntimeError("training base model_type must be qwen3_5")
-    if quantization.get("bits") != 4 or quantization.get("group_size") != 64:
-        raise RuntimeError(f"training base must be MLX affine 4-bit g64, got {quantization}")
-    weights = sorted(path.glob("*.safetensors"))
-    if not weights:
-        raise RuntimeError("quantized training base has no safetensors weights")
-    return {
-        "path": str(path.resolve()),
-        "modelType": config.get("model_type"),
-        "quantization": quantization,
-        "weightBytes": sum(weight.stat().st_size for weight in weights),
-        "configSha256": sha256_file(path / "config.json"),
+    return {name: importlib.metadata.version(name) for name in names}
+
+
+def verify_toolchain() -> dict[str, str]:
+    found = _versions()
+    expected = {
+        "mlx": MLX_VERSION,
+        "mlx-lm": MLX_LM_VERSION,
+        "mlx-vlm": MLX_VLM_VERSION,
+        "transformers": TRANSFORMERS_VERSION,
+        "datasets": "5.0.0",
+        "numpy": "2.5.1",
+        "huggingface-hub": "1.22.0",
+        "safetensors": "0.8.0",
+        "pyarrow": "25.0.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.10.0",
     }
-
-
-def prepare_training_base(
-    *,
-    output: Path,
-    cache_dir: Path,
-    python: str = sys.executable,
-    local_files_only: bool = False,
-    dry_run: bool = False,
-) -> dict[str, Any]:
-    _require_apple_silicon()
-    if output.exists() and (output / "config.json").is_file():
-        return verify_quantized_training_base(output)
-    command = [
-        python,
-        "-m",
-        "mlx_lm",
-        "convert",
-        "--hf-path",
-        f"{TRAIN_BASE_ID}@{TRAIN_BASE_REVISION}",
-        "--mlx-path",
-        str(output),
-        "--quantize",
-        "--q-bits",
-        "4",
-        "--q-group-size",
-        "64",
-    ]
-    if dry_run:
-        return {"status": "dry-run", "command": command}
-    # Resolve first so the immutable snapshot identity is verified before the
-    # large conversion starts. Passing the local path also prevents a mutable
-    # Hub lookup inside mlx_lm.convert.
-    snapshot = resolve_training_snapshot(cache_dir, local_files_only=local_files_only)
-    command[5] = str(snapshot)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(command, check=True)
-    return verify_quantized_training_base(output)
-
-
-def _package_version(name: str) -> str | None:
-    try:
-        return importlib.metadata.version(name)
-    except importlib.metadata.PackageNotFoundError:
-        return None
-
-
-def parse_training_metrics(log_path: Path) -> dict[str, Any]:
-    """Extract the final metrics and validation curve emitted by pinned MLX LM."""
-    text = log_path.read_text(encoding="utf-8")
-    validation = [
-        {"iteration": int(match.group(1)), "loss": float(match.group(2))}
-        for match in _VAL_METRIC.finditer(text)
-    ]
-    training = list(_TRAIN_METRIC.finditer(text))
-    test = _TEST_METRIC.search(text)
-    if not validation or not training or test is None:
-        raise RuntimeError(f"training log is missing required final metrics: {log_path}")
-    final = training[-1]
-    return {
-        "validationLoss": validation,
-        "finalTrain": {
-            "iteration": int(final.group(1)),
-            "loss": float(final.group(2)),
-            "trainedTokens": int(final.group(3)),
-            "reportedPeakMemoryGb": float(final.group(4)),
-        },
-        "test": {"loss": float(test.group(1)), "perplexity": float(test.group(2))},
+    mismatches = {
+        name: (expected[name], found.get(name)) for name in expected if found.get(name) != expected[name]
     }
+    if mismatches:
+        raise RuntimeError(f"training toolchain mismatch: {mismatches}")
+    return found
+
+
+def _dataset_identity(data_dir: Path) -> dict[str, Any]:
+    files = {}
+    for split in ("train", "validation", "test"):
+        path = data_dir / f"{split}.jsonl"
+        if not path.is_file() or not path.read_text(encoding="utf-8").strip():
+            raise RuntimeError(f"missing nonempty ORPO split: {path}")
+        files[split] = {
+            "path": str(path.resolve()),
+            "bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+            "rows": sum(1 for line in path.read_text(encoding="utf-8").splitlines() if line.strip()),
+        }
+    return files
 
 
 def build_training_plan(
     *,
-    config_path: Path,
+    tier: str,
     model_path: Path,
     data_dir: Path,
     output_dir: Path,
     run_dir: Path,
-    iters: int | None = None,
-) -> tuple[dict[str, Any], Path]:
-    config = _json(config_path)
-    if config.get("max_seq_length") != SEQUENCE_BUCKETS[-1]:
-        raise RuntimeError(
-            f"max_seq_length must be {SEQUENCE_BUCKETS[-1]} so Scion's bounded sequence buckets are exact"
+    iterations: int,
+    seed: int = 16031,
+) -> dict[str, Any]:
+    if tier not in {"lite", "pro"}:
+        raise ValueError("tier must be lite or pro")
+    if iterations <= 0:
+        raise ValueError("iterations must be positive")
+    pin = student_pin(tier)
+    if model_path.resolve().name != pin.revision:
+        raise RuntimeError("training model does not match pinned student base")
+    dataset = _dataset_identity(data_dir)
+    manifest_path = data_dir / "dataset-manifest.json"
+    if not manifest_path.is_file():
+        raise RuntimeError(f"missing dataset manifest: {manifest_path}")
+    dataset_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if dataset_manifest.get("status") != "research-ready":
+        raise RuntimeError("training requires a research-ready dataset manifest")
+    repository = _repository_identity(Path.cwd())
+    hyperparameters = {
+        "trainingMode": "orpo",
+        "split": "train",
+        "validationSplit": "validation",
+        "iterations": iterations,
+        "batchSize": 1,
+        "learningRate": 0.00002,
+        "stepsPerReport": 1 if iterations <= 10 else 20,
+        "stepsPerEval": 5 if iterations <= 10 else 100,
+        "stepsPerSave": max(5, min(100, iterations)),
+        "validationBatches": 4,
+        "maxSequenceLength": 2048,
+        "gradientCheckpointing": True,
+        "gradientAccumulationSteps": 2,
+        "loraRank": 16,
+        "loraAlpha": 16,
+        "loraDropout": 0,
+        "beta": 0.1,
+        "epsilon": 1e-8,
+    }
+    verify_toolchain()
+    toolchain_receipt = json.loads(
+        subprocess.check_output(
+            [sys.executable, "scripts/seeded_mlx_vlm_lora.py", "--inspect-toolchain"],
+            cwd=Path.cwd(),
+            text=True,
         )
-    config["scion_sequence_buckets"] = list(SEQUENCE_BUCKETS)
-    config["model"] = str(model_path.resolve())
-    config["data"] = str(data_dir.resolve())
-    config["adapter_path"] = str(output_dir.resolve())
-    if iters is not None:
-        if iters <= 0:
-            raise ValueError("iterations must be positive")
-        config["iters"] = iters
-    verify_quantized_training_base(model_path)
-    dataset_manifest = _json(data_dir / "manifest.json")
-    expected_base = dataset_manifest.get("base") or {}
-    if expected_base.get("modelId") != TRAIN_BASE_ID or expected_base.get("revision") != TRAIN_BASE_REVISION:
-        raise RuntimeError("dataset manifest is not bound to the pinned Bonsai training base")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    resolved = run_dir / "config.resolved.json"
-    resolved.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    )
+    toolchain_policy_sha256 = _sha256_value(
+        {
+            "protocol": "scion-mlx-orpo-toolchain-v1",
+            "platform": toolchain_receipt["platform"],
+            "packages": toolchain_receipt["packages"],
+        }
+    )
     plan = {
         "schemaVersion": 1,
-        "runId": hashlib.sha256(
-            (sha256_file(resolved) + sha256_file(data_dir / "manifest.json") + TRAIN_BASE_REVISION).encode()
-        ).hexdigest()[:24],
-        "createdAt": datetime.now(UTC).isoformat(),
-        "scionVersion": SCION_VERSION,
+        "protocol": "scion-adapter-training-run-v1",
+        "status": "planned",
+        "lane": "research",
+        "scionVersion": "3.0.0",
+        "startedAt": datetime.now(UTC).isoformat(),
+        "repository": repository,
         "base": {
-            "modelId": TRAIN_BASE_ID,
-            "revision": TRAIN_BASE_REVISION,
+            "modelId": pin.model_id,
+            "revision": pin.revision,
+            "architecture": "gemma4",
+            "role": "instruction",
             "exactRevisionRequired": True,
-            "prepared": verify_quantized_training_base(model_path),
+            "snapshotRevision": model_path.resolve().name,
         },
         "dataset": {
-            "manifest": str((data_dir / "manifest.json").resolve()),
-            "manifestSha256": sha256_file(data_dir / "manifest.json"),
-            "counts": dataset_manifest.get("counts"),
+            "manifestSha256": sha256_file(manifest_path),
+            "identitySha256": dataset_manifest["identity"]["sha256"],
+            "status": dataset_manifest["status"],
+            "primaryPreferenceEvidence": dataset_manifest["primaryPreferenceEvidence"],
+            "counts": {
+                key: dataset_manifest["counts"][key]
+                for key in ("total", "domains", "groups", "train", "valid", "test")
+            },
+            "files": dataset,
         },
         "toolchain": {
-            "python": platform.python_version(),
-            "mlxLm": _package_version("mlx-lm"),
-            "mlxLmExpected": MLX_LM_VERSION,
-            "mlxLmRevision": MLX_LM_REVISION,
-            "mlx": _package_version("mlx"),
+            "policySha256": toolchain_policy_sha256,
+            "receipt": toolchain_receipt,
         },
-        "config": {"path": str(resolved.resolve()), "sha256": sha256_file(resolved)},
+        "trainer": {
+            "entrypoint": "scripts/seeded_mlx_vlm_lora.py",
+            "seed": seed,
+            "hyperparameters": hyperparameters,
+        },
         "output": str(output_dir.resolve()),
-        "artifactCapBytes": MAX_SCION_ARTIFACT_BYTES,
+        "artifactCapBytes": MAX_LITE_BROWSER_ARTIFACT_BYTES if tier == "lite" else MAX_SCION_ARTIFACT_BYTES,
     }
-    plan_path = run_dir / "training-plan.json"
-    plan_path.write_text(json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return plan, resolved
+    identity = _sha256_value(
+        {
+            key: plan[key]
+            for key in (
+                "protocol",
+                "lane",
+                "scionVersion",
+                "repository",
+                "base",
+                "dataset",
+                "toolchain",
+                "trainer",
+            )
+        }
+    )
+    prefix = "scion-g4e2b" if tier == "lite" else "scion-g4-12b"
+    adapter_id = f"{prefix}-research-{identity[:16]}"
+    plan["identity"] = {
+        "algorithm": "sha256-canonical-training-plan-v1",
+        "sha256": identity,
+    }
+    plan["adapter"] = {"id": adapter_id, "promotionStatus": "research"}
+    plan["runId"] = adapter_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "training-plan.json").write_text(
+        json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return plan
 
 
-def train(
+def train_student(
     *,
-    config_path: Path,
-    model_path: Path,
+    tier: str,
     data_dir: Path,
+    cache_dir: Path,
     output_dir: Path,
     run_dir: Path,
+    iterations: int,
     python: str = sys.executable,
-    iters: int | None = None,
+    local_files_only: bool = False,
     dry_run: bool = False,
 ) -> dict[str, Any]:
-    _require_apple_silicon()
-    installed = _package_version("mlx-lm")
-    if installed != MLX_LM_VERSION:
-        raise RuntimeError(f"mlx-lm {MLX_LM_VERSION} is required, found {installed or 'not installed'}")
-    plan, resolved = build_training_plan(
-        config_path=config_path,
+    if platform.system() != "Darwin" or platform.machine() != "arm64":
+        raise RuntimeError("Scion training requires Apple Silicon macOS")
+    model_path = resolve_student_snapshot(tier, cache_dir, local_files_only=local_files_only)
+    token_audit_path = output_dir / "token-audit.json"
+    audit_orpo_lengths(
+        model_path=model_path,
+        data_dir=data_dir,
+        output_path=token_audit_path,
+        max_sequence_length=2048,
+    )
+    plan = build_training_plan(
+        tier=tier,
         model_path=model_path,
         data_dir=data_dir,
         output_dir=output_dir,
         run_dir=run_dir,
-        iters=iters,
+        iterations=iterations,
     )
-    command = [python, "-m", "scion.mlx_lora", "--config", str(resolved)]
+    plan["trainer"]["tokenAudit"] = {
+        "path": "token-audit.json",
+        "sha256": sha256_file(token_audit_path),
+        "status": "pass",
+    }
+    plan["identity"]["sha256"] = _sha256_value(
+        {
+            key: plan[key]
+            for key in (
+                "protocol",
+                "lane",
+                "scionVersion",
+                "repository",
+                "base",
+                "dataset",
+                "toolchain",
+                "trainer",
+            )
+        }
+    )
+    prefix = "scion-g4e2b" if tier == "lite" else "scion-g4-12b"
+    plan["adapter"]["id"] = f"{prefix}-research-{plan['identity']['sha256'][:16]}"
+    plan["runId"] = plan["adapter"]["id"]
+    (output_dir / "training-plan.json").write_text(
+        json.dumps(plan, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    config = plan["trainer"]["hyperparameters"]
+    command = [
+        python,
+        "scripts/seeded_mlx_vlm_lora.py",
+        "--scion-seed",
+        str(plan["trainer"]["seed"]),
+        "--scion-validation-split",
+        "validation",
+        "--",
+        "--model-path",
+        str(model_path),
+        "--dataset",
+        str(data_dir.resolve()),
+        "--split",
+        "train",
+        "--train-mode",
+        "orpo",
+        "--iters",
+        str(iterations),
+        "--batch-size",
+        str(config["batchSize"]),
+        "--learning-rate",
+        str(config["learningRate"]),
+        "--steps-per-report",
+        str(config["stepsPerReport"]),
+        "--steps-per-eval",
+        str(config["stepsPerEval"]),
+        "--steps-per-save",
+        str(config["stepsPerSave"]),
+        "--val-batches",
+        str(config["validationBatches"]),
+        "--max-seq-length",
+        str(config["maxSequenceLength"]),
+        "--grad-checkpoint",
+        "--gradient-accumulation-steps",
+        str(config["gradientAccumulationSteps"]),
+        "--lora-rank",
+        str(config["loraRank"]),
+        "--lora-alpha",
+        str(config["loraAlpha"]),
+        "--lora-dropout",
+        str(config["loraDropout"]),
+        "--beta",
+        str(config["beta"]),
+        "--eps",
+        str(config["epsilon"]),
+        "--output-path",
+        str(output_dir.resolve()),
+    ]
     if dry_run:
         return {"status": "dry-run", "plan": plan, "command": command}
     output_dir.mkdir(parents=True, exist_ok=True)
-    log_path = run_dir / "training.log"
+    log_path = output_dir / "training.log"
     with log_path.open("w", encoding="utf-8") as log:
         process = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
         )
         assert process.stdout is not None
         for line in process.stdout:
-            print(line, end="")
+            print(line, end="", flush=True)
             log.write(line)
             log.flush()
-        return_code = process.wait()
-    if return_code:
-        raise RuntimeError(f"mlx_lm.lora exited with status {return_code}; see {log_path}")
-    required = [output_dir / "adapter_config.json", output_dir / "adapters.safetensors"]
-    if any(not path.is_file() for path in required):
-        raise RuntimeError("training completed without the required adapter files")
-    artifact_bytes = sum(path.stat().st_size for path in required)
-    if artifact_bytes >= MAX_SCION_ARTIFACT_BYTES:
-        raise RuntimeError(f"MLX adapter exceeds the 1 GB Scion cap: {artifact_bytes}")
+        code = process.wait()
+    if code:
+        raise RuntimeError(f"training failed with exit {code}; see {log_path}")
+    files = [output_dir / "adapter_config.json", output_dir / "adapters.safetensors"]
+    if any(not path.is_file() for path in files):
+        raise RuntimeError("trainer did not create a complete adapter")
+    total = sum(path.stat().st_size for path in files)
+    if total > plan["artifactCapBytes"]:
+        raise RuntimeError(f"adapter exceeds tier cap: {total} > {plan['artifactCapBytes']}")
+    plan_path = output_dir / "training-plan.json"
+    plan_sha256 = sha256_file(plan_path)
     result = {
         "schemaVersion": 1,
-        "status": "trained-unpromoted",
+        "protocol": "scion-adapter-training-result-v1",
+        "status": "completed",
+        "adapterId": plan["adapter"]["id"],
+        "planSha256": plan_sha256,
+        "planIdentitySha256": plan["identity"]["sha256"],
         "completedAt": datetime.now(UTC).isoformat(),
-        "runId": plan["runId"],
-        "trainingPlanSha256": sha256_file(run_dir / "training-plan.json"),
+        "log": {
+            "path": "training.log",
+            "bytes": log_path.stat().st_size,
+            "sha256": sha256_file(log_path),
+            "retainedLocally": True,
+            "includedInPackage": False,
+        },
+        "artifactBytes": total,
         "files": [
-            {"path": path.name, "bytes": path.stat().st_size, "sha256": sha256_file(path)}
-            for path in required
+            {"path": path.name, "bytes": path.stat().st_size, "sha256": sha256_file(path)} for path in files
         ],
-        "artifactBytes": artifact_bytes,
-        "artifactCapBytes": MAX_SCION_ARTIFACT_BYTES,
-        "metrics": parse_training_metrics(log_path),
-        "promotion": "requires-base-vs-adapter held-out evaluation and CourseMapper smoke test",
     }
-    (run_dir / "training-result.json").write_text(
+    result["identity"] = {
+        "algorithm": "sha256-canonical-training-result-v1",
+        "sha256": _sha256_value(
+            {
+                "protocol": result["protocol"],
+                "planSha256": result["planSha256"],
+                "planIdentitySha256": result["planIdentitySha256"],
+                "adapterId": result["adapterId"],
+                "files": result["files"],
+                "log": result["log"],
+            }
+        ),
+    }
+    (output_dir / "training-result.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     return result

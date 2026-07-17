@@ -1,4 +1,4 @@
-"""Scion training, conversion, evaluation, and serving command line."""
+"""Scion's local data, distillation, training, and evaluation command line."""
 
 from __future__ import annotations
 
@@ -12,213 +12,170 @@ def _print(value: dict[str, Any]) -> None:
     print(json.dumps(value, indent=2, sort_keys=True))
 
 
-def _paths(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--cache-dir", type=Path, default=Path(".cache/huggingface"))
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="scion", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
-    dataset = commands.add_parser("dataset", help="build the provenance-bound CourseMapper corpus")
-    dataset.add_argument("--legacy-jsonl", type=Path, required=True)
-    dataset.add_argument("--approved-jsonl", type=Path, required=True)
-    dataset.add_argument("--source-capture-dir", type=Path, action="append", required=True)
-    dataset.add_argument("--output", type=Path, default=Path("data"))
-    dataset.add_argument("--eval-output", type=Path, default=Path("eval/fixtures.jsonl"))
-    dataset.add_argument("--heldout-output", type=Path, default=Path("eval/heldout-fixtures.jsonl"))
+    commands.add_parser("models", help="print the immutable teacher, critic, and student registry")
 
-    prepare = commands.add_parser("prepare", help="prepare an exact 4-bit MLX QLoRA base")
-    prepare.add_argument("--output", type=Path, default=Path(".cache/bonsai-27b-mlx-4bit"))
-    _paths(prepare)
-    prepare.add_argument("--local-files-only", action="store_true")
-    prepare.add_argument("--dry-run", action="store_true")
+    seed = commands.add_parser("seed", help="build license-clean synthetic tasks and locked tests")
+    seed.add_argument("--output", type=Path, default=Path("data/seeds"))
 
-    train = commands.add_parser("train", help="train the Scion MLX LoRA")
-    train.add_argument("--config", type=Path, default=Path("configs/train-bonsai-27b.json"))
-    train.add_argument("--model", type=Path, default=Path(".cache/bonsai-27b-mlx-4bit"))
-    train.add_argument("--data", type=Path, default=Path("data"))
-    train.add_argument("--output", type=Path, default=Path("artifacts/scion-bonsai-27b-mlx"))
-    train.add_argument("--run-dir", type=Path, default=Path("runs/bonsai-27b"))
-    train.add_argument("--iters", type=int)
+    teacher = commands.add_parser("teacher", help="generate oracle-admitted preferences with local Qwen")
+    teacher.add_argument("--split", choices=("train", "validation", "preference-test"), required=True)
+    teacher.add_argument("--cache-dir", type=Path, default=Path(".cache/huggingface"))
+    teacher.add_argument("--seed-dir", type=Path, default=Path("data/seeds"))
+    teacher.add_argument("--output-dir", type=Path, default=Path("data/teacher"))
+    teacher.add_argument("--attempts-dir", type=Path, default=Path("runs/teacher-attempts"))
+    teacher.add_argument("--limit", type=int)
+
+    critic = commands.add_parser("critic", help="blind-filter preferences with local Gemma 4 31B")
+    critic.add_argument("--split", choices=("train", "validation", "preference-test"), required=True)
+    critic.add_argument("--cache-dir", type=Path, default=Path(".cache/huggingface"))
+    critic.add_argument("--teacher-dir", type=Path, default=Path("data/teacher"))
+    critic.add_argument("--critic-dir", type=Path, default=Path("data/critic"))
+    critic.add_argument("--orpo-dir", type=Path, default=Path("data/orpo"))
+    critic.add_argument("--limit", type=int)
+
+    manifest = commands.add_parser("manifest", help="build the locked research-corpus receipt")
+    manifest.add_argument("--repo-root", type=Path, default=Path("."))
+    manifest.add_argument("--orpo-dir", type=Path, default=Path("data/orpo"))
+    manifest.add_argument("--critic-dir", type=Path, default=Path("data/critic"))
+    manifest.add_argument("--teacher-dir", type=Path, default=Path("data/teacher"))
+    manifest.add_argument(
+        "--heldout-benchmark",
+        type=Path,
+        default=Path("data/heldout/coursemapper-heldout-benchmark-v1.json"),
+    )
+    manifest.add_argument("--output", type=Path, default=Path("data/orpo/dataset-manifest.json"))
+
+    train = commands.add_parser("train", help="train a receipt-bound Gemma 4 student adapter")
+    train.add_argument("--tier", choices=("lite", "pro"), required=True)
+    train.add_argument("--data-dir", type=Path, default=Path("data/orpo"))
+    train.add_argument("--cache-dir", type=Path, default=Path(".cache/huggingface"))
+    train.add_argument("--output", type=Path)
+    train.add_argument("--run-dir", type=Path)
+    train.add_argument("--iterations", type=int, default=400)
+    train.add_argument("--smoke", action="store_true")
+    train.add_argument("--local-files-only", action="store_true")
     train.add_argument("--dry-run", action="store_true")
 
-    runtime = commands.add_parser("runtime", help="manage the pinned PrismML llama.cpp runtime")
-    runtime_commands = runtime.add_subparsers(dest="runtime_command", required=True)
-    runtime_build = runtime_commands.add_parser("build")
-    runtime_build.add_argument("--output", type=Path, default=Path(".cache/PrismML-llama.cpp"))
-    runtime_build.add_argument("--jobs", type=int, default=8)
-    runtime_build.add_argument("--dry-run", action="store_true")
-
-    convert = commands.add_parser("convert", help="convert MLX LoRA to a deployment GGUF adapter")
-    convert.add_argument("--mlx-adapter", type=Path, default=Path("artifacts/scion-bonsai-27b-mlx"))
-    convert.add_argument("--output", type=Path, default=Path("artifacts/scion-bonsai-27b.gguf"))
-    convert.add_argument("--runtime", type=Path, default=Path(".cache/PrismML-llama.cpp"))
-    convert.add_argument("--work-dir", type=Path, default=Path("runs/bonsai-27b/conversion"))
-    _paths(convert)
-    convert.add_argument("--local-files-only", action="store_true")
-    convert.add_argument("--dry-run", action="store_true")
-
-    serve = commands.add_parser("serve", help="serve Bonsai with the Scion adapter on the CourseMapper port")
-    serve.add_argument("--adapter", type=Path)
-    serve.add_argument("--base", type=Path)
-    serve.add_argument("--llama-server", type=Path)
-    _paths(serve)
-    serve.add_argument("--host", default="127.0.0.1")
-    serve.add_argument("--port", type=int, default=8799)
-    serve.add_argument("--context-size", type=int, default=32768)
-    serve.add_argument("--dry-run", action="store_true")
-
-    evaluate = commands.add_parser("evaluate", help="run held-out CourseMapper fixtures against an endpoint")
-    evaluate.add_argument("--endpoint", default="http://127.0.0.1:8799")
-    evaluate.add_argument("--fixtures", type=Path, default=Path("eval/heldout-fixtures.jsonl"))
-    evaluate.add_argument("--output", type=Path, required=True)
-    evaluate.add_argument("--model", default="scion-1")
+    evaluate = commands.add_parser("evaluate", help="run the locked 32-task local evaluation")
+    evaluate.add_argument("--tier", choices=("lite", "pro"), required=True)
+    evaluate.add_argument("--variant", choices=("base", "adapter"), required=True)
+    evaluate.add_argument("--adapter", type=Path)
+    evaluate.add_argument("--fixtures", type=Path, default=Path("data/seeds/heldout.jsonl"))
+    evaluate.add_argument("--cache-dir", type=Path, default=Path(".cache/huggingface"))
+    evaluate.add_argument("--output", type=Path)
     evaluate.add_argument("--limit", type=int)
-    evaluate.add_argument("--max-tokens", type=int, default=4096)
-    evaluate.add_argument("--unguided", action="store_true")
 
-    compare = commands.add_parser("compare", help="apply base-versus-adapter promotion thresholds")
+    compare = commands.add_parser("compare", help="apply paired promotion gates")
     compare.add_argument("--base", type=Path, required=True)
     compare.add_argument("--adapter", type=Path, required=True)
-    compare.add_argument("--output", type=Path, default=Path("runs/bonsai-27b/evaluation-comparison.json"))
-
-    smoke = commands.add_parser("smoke", help="exercise the exact CourseMapper OpenAI-compatible contract")
-    smoke.add_argument("--endpoint", default="http://127.0.0.1:8799")
-    smoke.add_argument("--output", type=Path, default=Path("runs/bonsai-27b/coursemapper-smoke.json"))
-    smoke.add_argument("--model", default="scion-1")
-
-    release = commands.add_parser("release", help="promote a verified adapter and write its release manifest")
-    release.add_argument("--adapter", type=Path, default=Path("artifacts/scion-bonsai-27b.gguf"))
-    release.add_argument("--dataset-manifest", type=Path, default=Path("data/manifest.json"))
-    release.add_argument(
-        "--evaluation-manifest", type=Path, default=Path("eval/heldout-manifest.json")
-    )
-    release.add_argument("--training-result", type=Path, default=Path("runs/bonsai-27b/training-result.json"))
-    release.add_argument(
-        "--conversion-receipt", type=Path, default=Path("runs/bonsai-27b/conversion/conversion-receipt.json")
-    )
-    release.add_argument(
-        "--comparison", type=Path, default=Path("runs/bonsai-27b/evaluation-comparison.json")
-    )
-    release.add_argument("--smoke", type=Path, default=Path("runs/bonsai-27b/coursemapper-smoke.json"))
-    release.add_argument("--output", type=Path, default=Path("artifacts/scion-bonsai-27b.manifest.json"))
+    compare.add_argument("--output", type=Path, required=True)
     return parser
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    if args.command == "dataset":
-        from .dataset import build_dataset
+    if args.command == "models":
+        from .model_registry import registry_json
 
-        paths = []
-        for directory in args.source_capture_dir:
-            paths.extend(directory.glob("*-reference.json"))
+        _print(registry_json())
+    elif args.command == "seed":
+        from .seed_tasks import write_seed_tasks
+
+        _print(write_seed_tasks(args.output))
+    elif args.command == "teacher":
+        from .local_inference import MlxGenerator, snapshot_path
+        from .model_registry import MODEL_PINS
+        from .teacher_corpus import generate_teacher_split
+
+        pin = MODEL_PINS["teacher"]
+        generator = MlxGenerator(snapshot_path(args.cache_dir, pin), pin)
         _print(
-            build_dataset(
-                legacy_jsonl=args.legacy_jsonl,
-                approved_jsonl=args.approved_jsonl,
-                source_capture_paths=paths,
-                output_dir=args.output,
-                eval_output=args.eval_output,
-                heldout_output=args.heldout_output,
+            generate_teacher_split(
+                generator=generator,
+                seed_path=args.seed_dir / f"{args.split.replace('-', '_')}.jsonl",
+                output_path=args.output_dir / f"{args.split.replace('-', '_')}.jsonl",
+                attempts_path=args.attempts_dir / f"{args.split.replace('-', '_')}.jsonl",
+                split=args.split,
+                limit=args.limit,
             )
         )
-    elif args.command == "prepare":
-        from .training import prepare_training_base
+    elif args.command == "critic":
+        from .critic_filter import filter_with_critic
+        from .local_inference import MlxGenerator, snapshot_path
+        from .model_registry import MODEL_PINS
+
+        pin = MODEL_PINS["critic"]
+        generator = MlxGenerator(snapshot_path(args.cache_dir, pin), pin)
+        _print(
+            filter_with_critic(
+                generator=generator,
+                teacher_path=args.teacher_dir / f"{args.split.replace('-', '_')}.jsonl",
+                evidence_path=args.critic_dir / f"{args.split.replace('-', '_')}.jsonl",
+                orpo_path=args.orpo_dir
+                / ("test.jsonl" if args.split == "preference-test" else f"{args.split}.jsonl"),
+                split=args.split,
+                limit=args.limit,
+            )
+        )
+    elif args.command == "manifest":
+        from .corpus_manifest import build_dataset_manifest
 
         _print(
-            prepare_training_base(
-                output=args.output,
-                cache_dir=args.cache_dir,
-                local_files_only=args.local_files_only,
-                dry_run=args.dry_run,
+            build_dataset_manifest(
+                repo_root=args.repo_root,
+                orpo_dir=args.orpo_dir,
+                critic_dir=args.critic_dir,
+                teacher_dir=args.teacher_dir,
+                heldout_benchmark_path=args.heldout_benchmark,
+                output_path=args.output,
             )
         )
     elif args.command == "train":
-        from .training import train
+        from .training import train_student
 
+        iterations = 10 if args.smoke else args.iterations
+        output = args.output or Path(f"artifacts/scion-{args.tier}-mlx")
+        run_dir = args.run_dir or Path(f"runs/training/{args.tier}")
         _print(
-            train(
-                config_path=args.config,
-                model_path=args.model,
-                data_dir=args.data,
-                output_dir=args.output,
-                run_dir=args.run_dir,
-                iters=args.iters,
-                dry_run=args.dry_run,
-            )
-        )
-    elif args.command == "runtime" and args.runtime_command == "build":
-        from .runtime import build_runtime
-
-        _print(build_runtime(args.output, jobs=args.jobs, dry_run=args.dry_run))
-    elif args.command == "convert":
-        from .convert import convert_adapter
-
-        _print(
-            convert_adapter(
-                mlx_adapter=args.mlx_adapter,
-                output=args.output,
-                runtime=args.runtime,
+            train_student(
+                tier=args.tier,
+                data_dir=args.data_dir,
                 cache_dir=args.cache_dir,
-                work_dir=args.work_dir,
+                output_dir=output,
+                run_dir=run_dir,
+                iterations=iterations,
                 local_files_only=args.local_files_only,
-                dry_run=args.dry_run,
-            )
-        )
-    elif args.command == "serve":
-        from .server import serve
-
-        _print(
-            serve(
-                adapter=args.adapter,
-                llama_server=args.llama_server,
-                base=args.base,
-                cache_dir=args.cache_dir,
-                host=args.host,
-                port=args.port,
-                context_size=args.context_size,
                 dry_run=args.dry_run,
             )
         )
     elif args.command == "evaluate":
-        from .evaluate import evaluate_endpoint
+        from .local_evaluation import evaluate_locked_tasks
+        from .local_inference import MlxGenerator, snapshot_path
+        from .model_registry import student_pin
 
+        if args.variant == "adapter" and args.adapter is None:
+            raise SystemExit("--adapter is required for adapter evaluation")
+        pin = student_pin(args.tier)
+        generator = MlxGenerator(snapshot_path(args.cache_dir, pin), pin, adapter_path=args.adapter)
+        output = args.output or Path(f"runs/evaluation/{args.tier}/{args.variant}")
         _print(
-            evaluate_endpoint(
-                endpoint=args.endpoint,
-                fixtures_path=args.fixtures,
-                output=args.output,
-                model=args.model,
+            evaluate_locked_tasks(
+                generator=generator,
+                fixture_path=args.fixtures,
+                output_dir=output,
+                tier=args.tier,
+                variant=args.variant,
                 limit=args.limit,
-                max_tokens=args.max_tokens,
-                guided=not args.unguided,
             )
         )
     elif args.command == "compare":
-        from .evaluate import compare_reports
+        from .local_evaluation import compare_evaluations
 
-        _print(compare_reports(args.base, args.adapter, args.output))
-    elif args.command == "smoke":
-        from .evaluate import coursemapper_smoke
-
-        _print(coursemapper_smoke(args.endpoint, args.output, model=args.model))
-    elif args.command == "release":
-        from .manifest import build_release_manifest
-
-        _print(
-            build_release_manifest(
-                adapter=args.adapter,
-                dataset_manifest=args.dataset_manifest,
-                evaluation_manifest=args.evaluation_manifest,
-                training_result=args.training_result,
-                conversion_receipt=args.conversion_receipt,
-                comparison=args.comparison,
-                smoke=args.smoke,
-                output=args.output,
-            )
-        )
+        _print(compare_evaluations(args.base, args.adapter, args.output))
     else:  # pragma: no cover
         raise AssertionError(args.command)
 

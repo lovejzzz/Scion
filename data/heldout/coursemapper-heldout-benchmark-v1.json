@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "scion-held-out-course-benchmark-v1",
+  "protocolVersion": "scion-adapter-course-pair-v1",
+  "frozenAt": "2026-07-13T10:45:00Z",
+  "minimumDomains": 5,
+  "minimumLessonsPerCourse": 12,
+  "selectionPolicy": {
+    "domainDisjointFromTraining": true,
+    "courseGroupDisjointFromTraining": true,
+    "sameCompilerCommitRequired": true,
+    "sameCompilerConfigRequired": true,
+    "sameGraderRequired": true,
+    "claimBoundary": "These five prompt-only Crucible fixtures are frozen before candidate evaluation. A domain or course group present in the candidate training manifest makes the benchmark ineligible rather than silently substituting another course."
+  },
+  "base": {
+    "modelId": "google/gemma-4-E2B-it-qat-q4_0-unquantized",
+    "revision": "1ca4dd94b623b6e0dd9da00c2239ab84b4f3e5ce",
+    "contractSha256": "4083e41165cd6637cf645fff00b7ad9940f46da36c3de212c0718768d79b0410"
+  },
+  "grader": {
+    "id": "deep-quality-grader-v1.8",
+    "path": "tests/lib/deepQualityGrader.js",
+    "sha256": "d19641f8492fafa979c47ee8ea178f7277d0c09e485908b4dfa326a3d9bfbfea"
+  },
+  "courses": [
+    {
+      "courseId": "mandarin",
+      "domain": "world-languages",
+      "lessonCount": 15,
+      "courseInputSha256": "b44b76f72a16d2c8eaf834c05ffd964ca31611ec2d1997c6f0505e7d07859b28",
+      "sourcePacketSha256": "f8570feda619374799a449bcb8928f4e605885e0b6b8572914ac3eafe7420329"
+    },
+    {
+      "courseId": "world-lit-readings",
+      "domain": "world-literature",
+      "lessonCount": 14,
+      "courseInputSha256": "bb04b8d76c8f9431511152d05f440bc52db905101116e7b8d45b8abc7e987b64",
+      "sourcePacketSha256": "557f1f739073841cbf31e9c5f1436ec1a9ff8b5ae12f46c888fbb1651433aefb"
+    },
+    {
+      "courseId": "psych-101",
+      "domain": "psychology",
+      "lessonCount": 15,
+      "courseInputSha256": "a92266099b2e67d2c7500c6d65f556c7480ba1b74e6e891b4f8c40537b7f31bf",
+      "sourcePacketSha256": "3bf71d7add65f2a33d7a13384c301435f291425f8e33626fb702f2e5bc0bf9e8"
+    },
+    {
+      "courseId": "nutrition-101",
+      "domain": "nutrition",
+      "lessonCount": 14,
+      "courseInputSha256": "705501de684ba707fbbc2978eb9180b7d5e17a166c565937277c67366de9d8a7",
+      "sourcePacketSha256": "61b80a78acb9da177e7fd53a49ec8092848de57fb095a2ab7e846de2ef35cb15"
+    },
+    {
+      "courseId": "astro-101",
+      "domain": "astronomy",
+      "lessonCount": 12,
+      "courseInputSha256": "ccb4768f2b6da7a6b10dca3903ed5264c4a21e255fab684471860e2e7eb8d65f",
+      "sourcePacketSha256": "d5ae2c206e9cf0f8327fe62b8ae33d22aa79713cc8aea092de1d520a7d9e4fc5"
+    }
+  ]
+}

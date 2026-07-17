@@ -1,79 +1,68 @@
-# Model card: Scion Bonsai 27B
+# Model card: Scion Education 3
 
 ## Summary
 
-Scion Bonsai 27B is a LoRA adaptation of PrismML Bonsai 27B for CourseMapper. Its intended tasks
-are structured university lesson kernels, evidence-bearing multiple-choice questions, key-term
-explanations with misconception corrections, and source-grounded atom bundles. The deployment
-artifact is an adapter; it cannot run without the separately downloaded pinned Bonsai 27B base.
+Scion Education 3 is a pair of LoRA adapters for Gemma 4 E2B and Gemma 4 12B. The adapters specialize strict,
+source-grounded educational JSON behavior for CourseMapper while leaving changing catalog facts to retrieval and
+tools. Scion Lite is also converted to a separate GGUF LoRA for CourseMapper's WebGPU-JSPI browser runtime.
+
+These are research adapters, not standalone models. They require the exact base revision named in each package
+manifest.
 
 ## Intended use
 
-- Local CourseMapper generation through model ID `scion-1`.
-- Drafting learner-ready educational material that an instructor can inspect and edit.
-- Producing strict JSON for the CourseMapper compilation pipeline.
+- Draft course plans and explain prerequisite or scheduling constraints from supplied facts.
+- Produce strict CourseMapper lesson-kernel and tool-call JSON.
+- Tutor with a diagnosis, hint, explanation, and check question grounded in a supplied source.
+- Identify missing evidence instead of inventing course facts.
 
-It is not intended to grade students autonomously, replace qualified instructors, make high-stakes
-educational decisions, or provide medical, legal, or safety-critical instruction.
+Scion is not intended to grade students autonomously, decide admissions or degree eligibility without an official
+system of record, replace an instructor, facilitate academic dishonesty, or provide medical, legal, or other
+high-stakes professional advice.
 
 ## Training
 
-- Base: `prism-ml/Bonsai-27B-unpacked`, exact revision
-  `d619b27283ac02b4199ced97a89419529dc0bfac`.
-- Method: 4-bit MLX QLoRA, rank 8, MLP projections in the final 24 transformer layers plus their
-  standard full-attention projections, prompt masking, gradient checkpointing, and
-  course-group-disjoint validation/test sets. Six bounded sequence buckets retain every corpus
-  token while preventing unbounded MLX graph-shape compilation. Fused linear-attention projections
-  are excluded because the pinned llama.cpp GGUF LoRA converter cannot losslessly represent their
-  head reorder.
-- Corpus: 711 train / 297 validation / 457 test examples over lesson, assessment, terminology,
-  and grounded-source response types.
-- Completed run: 400 microbatches with gradient accumulation 4, covering 119,818 target tokens.
-  Validation loss fell from 15.306 at the initial check to 11.124 at step 400; final training loss
-  was 11.297 and the 48-example MLX test loss was 11.262.
-- Deployment: LoRA converted to F16 GGUF and applied to PrismML's 1-bit Bonsai GGUF at runtime.
+- Primary teacher: local Qwen3.6 27B 8-bit, deterministic or low-temperature generation.
+- Independent critic: local Gemma 4 31B Q4 with blind A/B label randomization.
+- Students: exact Gemma 4 E2B and 12B QAT checkpoints.
+- Method: ORPO LoRA, rank 16, alpha 16, learning rate 2e-5, beta 0.1, batch size 1, gradient accumulation 2,
+  gradient checkpointing, and a 2,048-token limit.
+- Training data: only pairs that pass both a deterministic task oracle and the blind independent critic.
+- Reproducibility: exact model revisions, file hashes, clean Git tree, package versions, seed, dataset identity,
+  token-length audit, training log, and adapter checksums are recorded in release receipts.
 
-The generated release manifest is the authority for the exact trained artifact, run receipt,
-evaluation metrics, and SHA-256. No checkpoint is promoted merely because training completed.
+No closed API output is present in the training corpus. The pinned 122B escalation model is not used unless a
+recorded gate demonstrates that it is necessary.
 
 ## Evaluation
 
-Promotion compares the unadapted base and adapter on the same held-out fixtures. It measures strict
-contract pass rate, deterministic structural/pedagogical checks, reference-token F1, and a live
-CourseMapper protocol smoke test. These automated measures test integration and content retention;
-they are not evidence of student learning outcomes or broad academic correctness.
+Each base and adapter is evaluated with deterministic decoding on the same locked 32-task benchmark, balanced
+across all eight capabilities. Promotion logic requires higher pass rate, fewer issues, no capability regression,
+and no citation-hallucination regression. The package's `training-result.json`, evaluation reports, and model
+manifest are the authority for completed-run measurements.
 
-The promoted run used 48 test-only fixtures balanced across lessons, MC items, key terms, and source
-bundles, spanning seven domains. Both arms used the same fixture SHA, deterministic decoding,
-CourseMapper JSON Schemas, and contract-directive SHA.
-
-| Metric | Bonsai base | Scion adapter |
-|---|---:|---:|
-| Contract pass | 45/48 (93.75%) | 45/48 (93.75%) |
-| Mean quality score | 0.9653 | 0.9705 |
-| Mean reference-token F1 | 0.3449 | 0.3506 |
-| p95 latency on Apple M2 Max | 54.02 s | 54.25 s |
-
-The adapter's remaining three rejected rows contain duplicate MC options or key-term fields whose
-misconception, correction, and definition collapse to repeated wording. They remain in the
-published row-level receipt and should be rejected or regenerated by CourseMapper admission logic.
+This benchmark measures contract adherence and bounded reasoning on fictional tasks. It does not measure student
+learning outcomes, broad subject expertise, fairness across populations, or correctness on a live university
+catalog.
 
 ## Limitations and risks
 
-- Much of the corpus is machine-authored and teacher-*style* chosen, not independently instructor
-  reviewed.
-- Grounded examples cover computer science, geology, music theory, and UX more deeply than other
-  fields. Quality may vary by subject and level.
-- A model can return plausible but incorrect facts, misleading distractors, or fabricated details.
-- The measured quality/F1 improvements over the 1-bit base are positive but small.
-- Deterministic decoding improves reproducibility but does not guarantee truth.
-- The 1-bit serving base can lose quality relative to a higher-precision checkpoint.
+- A small adapter cannot transfer all reasoning ability of a 27B teacher or 31B critic into an E2B student.
+- Synthetic templates improve coverage and determinism but do not substitute for instructor review or authentic
+  classroom evaluation.
+- The model can still emit plausible but incorrect explanations or JSON that fails downstream validation.
+- Subject facts are intentionally sparse; using the model without CourseMapper retrieval increases hallucination
+  risk.
+- The Lite quantized browser base trades quality for memory and download size.
+- Safety examples are bounded academic scenarios, not a comprehensive safety evaluation.
 
-Human review remains required before publication. CourseMapper should retain source constraints,
-schema validation, and visible editing controls around the model.
+CourseMapper must retain schema validation, citation checks, tool boundaries, visible editing, and a base-only
+rollback path. Human review remains required before publishing educational material or acting on a degree audit.
 
 ## Size and license
 
-The release gate limits the Scion-specific adapter to fewer than 1,000,000,000 bytes. The pinned
-base is about 3.8 GB and is not bundled. This repository is Apache-2.0; consult the upstream Bonsai
-model card and third-party notices for upstream terms and attribution.
+Each Scion-specific adapter must be below 1,000,000,000 bytes. The Lite browser package must additionally stay
+below 64 MiB and two percent of the 3,349,514,112-byte pinned runtime base. Base weights are not bundled.
+
+Scion code and synthetic data are Apache-2.0. Model and dependency terms remain those of their upstream projects;
+see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

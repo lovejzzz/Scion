@@ -1,15 +1,19 @@
 # Third-party notices
 
-Scion does not bundle its base model or runtime binaries.
+Scion does not commit or redistribute foundation-model weights.
 
-- **PrismML Bonsai 27B** — training and serving checkpoints published by PrismML under the terms
-  stated in their Hugging Face repositories; the checked model metadata identifies Apache-2.0.
-- **PrismML llama.cpp** — pinned fork of llama.cpp, built locally and subject to its upstream
-  license and notices.
-- **MLX and MLX LM** — Apple machine-learning libraries used for local QLoRA preparation and
-  training, subject to their upstream licenses.
-- **Hugging Face Hub, safetensors, PyTorch, NumPy** — tooling used for immutable checkpoint
-  retrieval and adapter conversion, subject to their upstream licenses.
+- **Qwen3.6 27B and optional Qwen3.5 122B** — local teacher checkpoints published by the Qwen/MLX community and
+  identified by their model cards as Apache-2.0.
+- **Gemma 4 E2B, 12B, and 31B** — student and critic checkpoints published by Google or MLX community conversions
+  and identified by their model cards as Apache-2.0. Users remain responsible for reviewing the upstream Gemma
+  terms and acceptable-use documentation.
+- **MLX, MLX-LM, and MLX-VLM** — Apple Silicon inference and training libraries under their upstream licenses.
+- **llama.cpp** — the pinned MLX-LoRA-to-GGUF conversion tool and CourseMapper browser runtime foundation under its
+  upstream MIT license and notices.
+- **Hugging Face Hub, Transformers, PyTorch, Datasets, safetensors, tokenizers, NumPy, and PyArrow** — model
+  retrieval, processor compatibility, data, and serialization libraries under their respective upstream licenses.
 
-Educational source attributions and per-source license labels are retained in `eval/fixtures.jsonl`
-and summarized in `DATASET_CARD.md`.
+The narrow MLX-to-PEFT bridge in `scripts/convert_mlx_lora_to_peft.py` is derived from the Apache-2.0 CourseMapper
+implementation at revision `4f5bed3833f72494917e67c1a0c878af8c2b9a70` and remains Apache-2.0.
+
+Exact package versions, revisions, hashes, and model licenses are recorded in the model registry and run receipts.

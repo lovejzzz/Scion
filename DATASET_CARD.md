@@ -1,55 +1,51 @@
-# Dataset card: Scion CourseMapper education v2
+# Dataset card: Scion Education preferences
 
 ## Purpose and composition
 
-This supervised fine-tuning corpus teaches Bonsai 27B the JSON contracts used by CourseMapper. It
-contains 1,465 admitted examples:
+The corpus teaches grounded educational behavior and CourseMapper-compatible structured output. The deterministic
+seed generator creates 256 fictional tasks:
 
-| Split | Total | Course groups |
-|---|---:|---:|
-| Train | 711 | 10 |
-| Validation | 297 | 6 |
-| Test | 457 | 7 |
+| Split | Tasks | Teacher/critic use | Student training use |
+|---|---:|---|---|
+| Train | 160 | yes | yes, after admission |
+| Validation | 32 | yes | validation only, after admission |
+| Preference test | 32 | yes | ORPO test only, never optimization |
+| Locked evaluation | 32 | **never** | **never** |
 
-Response types are complete lesson kernels, multiple-choice items, key terms, and source bundles.
-Domains include astronomy, computer science, economics, geology, language learning, music theory,
-nutrition, nursing, psychology, statistics, UX design, and world literature.
+Every split contains equal representation of prerequisite reasoning, schedule constraints, degree audits,
+uncertainty grounding, tutoring, safe education, tool use, and CourseMapper lesson kernels. Final admitted counts
+and per-domain coverage are recorded in `data/orpo/dataset-manifest.json`; rejected rows remain quarantined with
+their admission stage and issues.
 
-## Sources
+## Sources and licensing
 
-1. Teacher-style chosen outputs from the prior Scion repository at exact revision
-   `7f97e9b7f995bb7bf74eedd0c07fa8ca291f1d06`, normalized to the current CourseMapper contract.
-2. Stable, order-swapped preference winners from CourseMapper at exact revision
-   `4f5bed3833f72494917e67c1a0c878af8c2b9a70`.
-3. CourseMapper compiler-admitted source captures derived from attributed OpenStax, W3C,
-   Digital.gov, Open Geology, and music-theory source packets.
+All prompts, catalogs, policies, student records, and source packets are deterministic fictional examples authored
+in this repository and released under Apache-2.0. They contain no real student data and no real institutional
+catalog data. Chosen responses come only from the pinned local Qwen teacher. Preference validation comes only
+from deterministic repository code and the pinned local Gemma critic.
 
-`data/manifest.json` records source hashes, exact revisions, per-file hashes, counts, and split
-membership. Per-example provenance is stored separately in `data/metadata`; training JSONL contains
-only chat messages.
+No OpenAI, Qwen Cloud, Alibaba Cloud, or other closed API output is included.
 
-## Processing and leakage controls
+## Admission and leakage controls
 
-- Outputs are normalized to the current abbreviated CourseMapper schemas.
-- Every assistant response passes deterministic contract admission before writing.
-- Exact response duplicates are removed.
-- Entire course groups are assigned to only one split; group intersections are rejected.
-- Held-out evaluation fixtures come from test groups and are never copied into training messages.
-- Promotion evaluation selects 12 deterministic, domain-round-robin examples for each of the four
-  CourseMapper response kinds and binds the set to its own manifest and SHA-256.
-- Local absolute paths are removed from published provenance.
+- Each task has an exact response contract and deterministic semantic oracle.
+- A minimally changed rejected response is constructed only after the chosen response passes.
+- The rejected response must fail the oracle for a recorded reason.
+- The independent critic receives blind, hash-randomized A/B labels and must select the oracle-admitted candidate
+  with score at least 4/5 while passing grounding and pedagogy.
+- A prompt change changes the task hash; cached teacher or critic output then becomes stale and is regenerated.
+- Course-group IDs are split-disjoint. Dataset identity includes all source and split hashes.
+- The locked 32-task benchmark is never available to teacher generation, critic filtering, or training.
+- A second frozen CourseMapper five-domain benchmark is hash-bound as a disjoint integration boundary.
+- Every final chosen and rejected sequence is formatted with the actual Gemma 4 chat template and must fit within
+  2,048 tokens; silent truncation is forbidden.
+
+The four CourseMapper research domains are `course-planning`, `academic-operations`, `education-pedagogy`, and
+`responsible-guidance`. These are capability domains, not claims of comprehensive subject-matter coverage.
 
 ## Known limitations
 
-The corpus does not contain student personal data or classroom outcome measurements. Most examples
-are machine-authored, and stable automated preference selection is not independent instructor
-review. Source-grounded coverage is deeper in four domains than elsewhere. Users should treat the
-dataset as task-format specialization, not a comprehensive or authoritative curriculum.
-
-## Licensing
-
-Repository-authored transformations are distributed under Apache-2.0. Source-capture records retain
-their own attribution and license labels in fixture provenance, including CC-BY-4.0,
-CC-BY-NC-SA-4.0, the W3C Document License, and U.S. Government Work. Downstream users are
-responsible for preserving applicable attribution and non-commercial restrictions when reusing
-source-derived material beyond model evaluation.
+The corpus is small and synthetic. It is suitable for a measured research adapter, not CourseMapper's production
+promotion threshold. Automated teacher/critic agreement is not independent instructor review. The task families
+are deliberately structured and may overestimate performance on free-form dialogue. The corpus contains no
+student outcomes, demographic attributes, longitudinal records, or evidence of instructional effectiveness.

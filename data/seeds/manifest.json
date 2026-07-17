@@ -1,0 +1,48 @@
+{
+  "categories": [
+    "coursemapper-kernel",
+    "degree-audit",
+    "prerequisite-reasoning",
+    "safe-education",
+    "schedule-constraints",
+    "tool-use",
+    "tutoring",
+    "uncertainty-grounding"
+  ],
+  "containsRealCatalogData": false,
+  "containsRealStudentData": false,
+  "counts": {
+    "heldout": 32,
+    "preference-test": 32,
+    "train": 160,
+    "validation": 32
+  },
+  "files": [
+    {
+      "path": "train.jsonl",
+      "rows": 160,
+      "sha256": "4dac4160cbf809cddf96438c58708ae59de479d887e8898c1d16bc14a3b4220d"
+    },
+    {
+      "path": "validation.jsonl",
+      "rows": 32,
+      "sha256": "65ec002b8b3e6e334bb82d2a277f5adf55d49b2de77899844db9e9fbd3523603"
+    },
+    {
+      "path": "preference_test.jsonl",
+      "rows": 32,
+      "sha256": "a63c645d37d6ba4dd630a19632dc4af247280df093ab4da9f25d333c7e1f8d75"
+    },
+    {
+      "path": "heldout.jsonl",
+      "rows": 32,
+      "sha256": "81c36de2a8520850b4173d7aedb20093ecbfac202894ce0fafb3048925b28e24"
+    }
+  ],
+  "generatorSeed": 16031,
+  "identitySha256": "474afe00521be2ad1d66daa4c61856ee1fa674e8b14bd2bfe0c7854f7296d546",
+  "license": "Apache-2.0",
+  "origin": "Scion deterministic synthetic generator; no closed-model output",
+  "protocol": "scion-license-clean-seed-tasks-v1",
+  "schemaVersion": 1
+}

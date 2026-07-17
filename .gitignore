@@ -3,13 +3,13 @@
 .pytest_cache/
 .ruff_cache/
 .venv/
+.venv-gemma/
 __pycache__/
 *.py[cod]
 *.egg-info/
 artifacts/*
 !artifacts/.gitkeep
-!artifacts/scion-bonsai-27b.gguf
-!artifacts/scion-bonsai-27b.manifest.json
+!artifacts/*.manifest.json
 !artifacts/receipts/
 !artifacts/receipts/*.json
 runs/*

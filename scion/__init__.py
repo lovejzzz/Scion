@@ -1,4 +1,4 @@
-"""Scion: CourseMapper's Bonsai 27B education adapter stack."""
+"""Scion: local Gemma 4 education adapters for CourseMapper."""
 
 from .constants import SCION_VERSION
 

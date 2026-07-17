@@ -1,0 +1,29 @@
+{
+  "admissionRate": 1.0,
+  "admittedRows": 160,
+  "byCategory": {
+    "coursemapper-kernel": 20,
+    "degree-audit": 20,
+    "prerequisite-reasoning": 20,
+    "safe-education": 20,
+    "schedule-constraints": 20,
+    "tool-use": 20,
+    "tutoring": 20,
+    "uncertainty-grounding": 20
+  },
+  "critic": {
+    "closedApiOutputUsed": false,
+    "license": "Apache-2.0",
+    "modelId": "mlx-community/gemma-4-31b-it-4bit",
+    "revision": "696d436c404745a59f30e4939a658162b0a9e57f"
+  },
+  "evidenceSha256": "8d63bcc70c89074228ad744ca9830f167144e55750c43031ea85f05c6f95e89a",
+  "generatedAt": "2026-07-17T20:06:04.585707+00:00",
+  "orpoSha256": "07b3a75a3080dd984bb16b132eb9a2c8fab13e8c692b2c41ed5ccfe012f60f5a",
+  "protocol": "scion-blind-local-critic-v1",
+  "rejectedRows": 0,
+  "schemaVersion": 1,
+  "split": "train",
+  "teacherRows": 160,
+  "teacherSha256": "9a6b6a0fd79dc4d89b6b269d1b10c949f1fad87f649763a9ff87a86f50e1057d"
+}
