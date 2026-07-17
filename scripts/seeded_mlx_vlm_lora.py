@@ -99,6 +99,7 @@ def launch(argv: list[str]) -> None:
 
     np.random.seed(seed)
     mx.random.seed(seed)
+    model_path = Path(_forwarded_value(forwarded, "--model-path")).resolve()
     dataset_path = _forwarded_value(forwarded, "--dataset")
     dataset_root = Path(dataset_path).resolve()
     data_files = {
@@ -126,6 +127,21 @@ def launch(argv: list[str]) -> None:
 
     datasets.load_dataset = load_explicit_dataset
     original = orpo_trainer.train_orpo
+    unified_model_class = None
+    original_chunking_probe = None
+    model_config = json.loads((model_path / "config.json").read_text(encoding="utf-8"))
+    if model_config.get("model_type") == "gemma4_unified":
+        from mlx_vlm.models.gemma4_unified.gemma4_unified import Model as UnifiedModel
+
+        unified_model_class = UnifiedModel
+        original_chunking_probe = UnifiedModel._should_disable_chunked_prefill
+
+        def text_only_chunking_probe(self, input_ids=None, **kwargs):
+            # ORPO inputs are audited text-only conversations. The upstream
+            # probe calls .item() inside value_and_grad, which MLX forbids.
+            return False
+
+        UnifiedModel._should_disable_chunked_prefill = text_only_chunking_probe
 
     def with_validation(*, train_dataset, val_dataset=None, **kwargs):
         if val_dataset is not None:
@@ -148,6 +164,8 @@ def launch(argv: list[str]) -> None:
     finally:
         orpo_trainer.train_orpo = original
         datasets.load_dataset = original_load_dataset
+        if unified_model_class is not None and original_chunking_probe is not None:
+            unified_model_class._should_disable_chunked_prefill = original_chunking_probe
 
 
 def main(argv: list[str]) -> None:
