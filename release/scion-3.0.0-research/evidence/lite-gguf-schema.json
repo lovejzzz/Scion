@@ -1,0 +1,208 @@
+{
+  "adapter": {
+    "byCategory": {
+      "coursemapper-kernel": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "degree-audit": {
+        "count": 4,
+        "issueCount": 13,
+        "passCount": 0,
+        "passRate": 0.0
+      },
+      "prerequisite-reasoning": {
+        "count": 4,
+        "issueCount": 10,
+        "passCount": 0,
+        "passRate": 0.0
+      },
+      "safe-education": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "schedule-constraints": {
+        "count": 4,
+        "issueCount": 6,
+        "passCount": 1,
+        "passRate": 0.25
+      },
+      "tool-use": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "tutoring": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "uncertainty-grounding": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      }
+    },
+    "fixtures": {
+      "count": 32,
+      "path": "data/seeds/heldout.jsonl",
+      "selectedIdsSha256": "a4274c0083134018f092c19e6a150b9c09d50568205b7e139133891fc05eea8b",
+      "sha256": "81c36de2a8520850b4173d7aedb20093ecbfac202894ce0fafb3048925b28e24",
+      "split": "heldout",
+      "trainingUseForbidden": true
+    },
+    "generatedAt": "2026-07-17T23:08:18.225887+00:00",
+    "issueCount": 29,
+    "issueKinds": {
+      "hallucinated-citation": 4,
+      "missing-required-citation": 8,
+      "wrong-complete": 2,
+      "wrong-eligibility": 3,
+      "wrong-missingImmediate": 3,
+      "wrong-recommendedSequence": 3,
+      "wrong-remainingByGroup": 3,
+      "wrong-sectionIds": 3
+    },
+    "meanTokensPerSecond": 87.944835192861,
+    "model": {
+      "adapter": {
+        "id": "scion-g4e2b-research-bd36bd9af98b30c2-browser",
+        "manifestSha256": "c90f7d0cc13ff585f361793f9c39375da166cba43911ccb3d47e8d803ec473f3",
+        "scale": 10.0
+      },
+      "bytes": 3349514112,
+      "file": "gemma-4-E2B_q4_0-it.gguf",
+      "id": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "revision": "69536a21d70340464240401ba38223d805f6a709",
+      "sha256": "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd"
+    },
+    "passCount": 21,
+    "passRate": 0.65625,
+    "protocol": "scion-locked-gguf-schema-evaluation-v1",
+    "resultsSha256": "427e621257de26004a5b6f69667946de5d3d54a5836061d13085ebe8590c79b7",
+    "runtime": {
+      "courseMapperPromptRevision": "4f5bed3833f72494917e67c1a0c878af8c2b9a70",
+      "id": "llama.cpp-server-json-schema",
+      "revision": "5ec717d1256e34558a44dc09adf1e6e16f2e2682",
+      "schemaConstrained": true,
+      "validationScaleTuning": false
+    },
+    "schemaVersion": 1,
+    "tier": "lite",
+    "variant": "adapter"
+  },
+  "base": {
+    "byCategory": {
+      "coursemapper-kernel": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "degree-audit": {
+        "count": 4,
+        "issueCount": 12,
+        "passCount": 0,
+        "passRate": 0.0
+      },
+      "prerequisite-reasoning": {
+        "count": 4,
+        "issueCount": 10,
+        "passCount": 0,
+        "passRate": 0.0
+      },
+      "safe-education": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "schedule-constraints": {
+        "count": 4,
+        "issueCount": 8,
+        "passCount": 0,
+        "passRate": 0.0
+      },
+      "tool-use": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "tutoring": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "uncertainty-grounding": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      }
+    },
+    "fixtures": {
+      "count": 32,
+      "path": "data/seeds/heldout.jsonl",
+      "selectedIdsSha256": "a4274c0083134018f092c19e6a150b9c09d50568205b7e139133891fc05eea8b",
+      "sha256": "81c36de2a8520850b4173d7aedb20093ecbfac202894ce0fafb3048925b28e24",
+      "trainingUseForbidden": true
+    },
+    "generatedAt": "2026-07-17T22:44:05.386883+00:00",
+    "issueCount": 30,
+    "issueKinds": {
+      "hallucinated-citation": 4,
+      "missing-required-citation": 11,
+      "wrong-eligibility": 3,
+      "wrong-missingImmediate": 2,
+      "wrong-recommendedSequence": 2,
+      "wrong-remainingByGroup": 4,
+      "wrong-sectionIds": 4
+    },
+    "meanTokensPerSecond": 119.76888783914704,
+    "model": {
+      "adapter": null,
+      "bytes": 3349514112,
+      "file": "gemma-4-E2B_q4_0-it.gguf",
+      "id": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "revision": "69536a21d70340464240401ba38223d805f6a709",
+      "sha256": "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd"
+    },
+    "passCount": 20,
+    "passRate": 0.625,
+    "protocol": "scion-locked-gguf-schema-evaluation-v1",
+    "resultsSha256": "da07a8f02779f34e1a726bd41d3dd1be63546537e839ddac59d200aa18dd4fdd",
+    "runtime": {
+      "courseMapperPromptRevision": "4f5bed3833f72494917e67c1a0c878af8c2b9a70",
+      "id": "llama.cpp-server-json-schema",
+      "revision": "5ec717d1256e34558a44dc09adf1e6e16f2e2682",
+      "schemaConstrained": true
+    },
+    "schemaVersion": 1,
+    "tier": "lite",
+    "variant": "base"
+  },
+  "categoryRegressions": [],
+  "checks": {
+    "noCategoryPassRateRegression": true,
+    "noHallucinatedCitationRegression": true,
+    "overallPassRateImproved": true,
+    "sameLocked32Fixtures": true,
+    "totalIssuesReduced": true
+  },
+  "deltas": {
+    "issueCount": -1,
+    "passRate": 0.03125
+  },
+  "protocol": "scion-paired-promotion-comparison-v1",
+  "schemaVersion": 1,
+  "status": "pass"
+}

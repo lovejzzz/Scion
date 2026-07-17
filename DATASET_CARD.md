@@ -17,6 +17,11 @@ uncertainty grounding, tutoring, safe education, tool use, and CourseMapper less
 and per-domain coverage are recorded in `data/orpo/dataset-manifest.json`; rejected rows remain quarantined with
 their admission stage and issues.
 
+The completed corpus admits all 224 generated preference pairs: 160 train, 32 validation, and 32 preference test,
+across 96 disjoint groups and four capability domains. The locked dataset identity is
+`dcf75cfdf30c57ecc7ebf3084c3b63042fa686926942563246f669eb9b0b45b8`. All preference judgments are from the
+single local Gemma critic; there are no blind human-instructor labels.
+
 ## Sources and licensing
 
 All prompts, catalogs, policies, student records, and source packets are deterministic fictional examples authored
@@ -46,6 +51,8 @@ The four CourseMapper research domains are `course-planning`, `academic-operatio
 ## Known limitations
 
 The corpus is small and synthetic. It is suitable for a measured research adapter, not CourseMapper's production
-promotion threshold. Automated teacher/critic agreement is not independent instructor review. The task families
-are deliberately structured and may overestimate performance on free-form dialogue. The corpus contains no
-student outcomes, demographic attributes, longitudinal records, or evidence of instructional effectiveness.
+promotion threshold. The production gate fails because 224 is below 3,000 verified pairs and four domains is
+below five; it also lacks the required fifth model-judge-qualified domain. Automated teacher/critic agreement is
+not independent instructor review. The task families are deliberately structured and may overestimate
+performance on free-form dialogue. The corpus contains no student outcomes, demographic attributes, longitudinal
+records, or evidence of instructional effectiveness.

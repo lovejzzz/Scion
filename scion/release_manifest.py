@@ -45,6 +45,7 @@ def _package(directory: Path) -> dict[str, Any]:
     if not adapter_files or any(record["bytes"] >= MAX_SCION_ARTIFACT_BYTES for record in adapter_files):
         raise RuntimeError(f"package violates the adapter delivery cap: {directory}")
     return {
+        "name": directory.name,
         "adapterId": manifest["adapter"]["id"],
         "format": manifest["adapter"]["format"],
         "base": manifest["base"],
@@ -53,7 +54,55 @@ def _package(directory: Path) -> dict[str, Any]:
             "sha256": _sha256(manifest_path),
         },
         "files": verified,
+        "totalFileBytes": sum(record["bytes"] for record in verified),
     }
+
+
+def _comparison_label(report: dict[str, Any]) -> str:
+    adapter = report["adapter"]
+    protocol = adapter["protocol"]
+    suffix = {
+        "scion-locked-local-evaluation-v1": "mlx-strict",
+        "scion-coursemapper-runtime-normalized-evaluation-v1": "mlx-coursemapper",
+        "scion-locked-gguf-schema-evaluation-v1": "gguf-schema",
+    }.get(protocol, "evaluation")
+    return f"{adapter['tier']}-{suffix}"
+
+
+def _evaluation_summary(report: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: report.get(key)
+        for key in (
+            "protocol",
+            "passCount",
+            "passRate",
+            "issueCount",
+            "meanTokensPerSecond",
+            "peakMemoryGb",
+        )
+        if report.get(key) is not None
+    }
+
+
+def _portable_paths(value: Any, repo_root: Path) -> Any:
+    if isinstance(value, dict):
+        return {key: _portable_paths(item, repo_root) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_portable_paths(item, repo_root) for item in value]
+    if isinstance(value, str):
+        candidate = Path(value)
+        if candidate.is_absolute():
+            try:
+                return candidate.resolve().relative_to(repo_root.resolve()).as_posix()
+            except ValueError:
+                return value
+    return value
+
+
+def _release_asset(path: Path) -> dict[str, Any]:
+    if not path.is_file() or path.is_symlink():
+        raise RuntimeError(f"release asset is not a regular file: {path}")
+    return {"name": path.name, "bytes": path.stat().st_size, "sha256": _sha256(path)}
 
 
 def build_release_manifest(
@@ -63,16 +112,34 @@ def build_release_manifest(
     comparison_paths: list[Path],
     dataset_manifest_path: Path,
     output_path: Path,
+    release_assets: list[Path] | None = None,
 ) -> dict[str, Any]:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    evidence_dir = output_path.parent / "evidence"
+    evidence_dir.mkdir(parents=True, exist_ok=True)
     comparisons = []
     for path in comparison_paths:
         report = _json(path)
         if report.get("status") != "pass":
             raise RuntimeError(f"cannot release a failed paired comparison: {path}")
+        label = _comparison_label(report)
+        evidence_path = evidence_dir / f"{label}.json"
+        evidence_path.write_text(
+            json.dumps(_portable_paths(report, repo_root), indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
         comparisons.append(
             {
+                "id": label,
                 "tier": report["adapter"]["tier"],
-                "sha256": _sha256(path),
+                "evidence": {
+                    "path": evidence_path.relative_to(output_path.parent).as_posix(),
+                    "bytes": evidence_path.stat().st_size,
+                    "sha256": _sha256(evidence_path),
+                    "sourceSha256": _sha256(path),
+                },
+                "base": _evaluation_summary(report["base"]),
+                "adapter": _evaluation_summary(report["adapter"]),
                 "checks": report["checks"],
                 "deltas": report["deltas"],
             }
@@ -102,10 +169,10 @@ def build_release_manifest(
         },
         "models": registry_json(),
         "packages": [_package(path) for path in package_dirs],
+        "releaseAssets": [_release_asset(path) for path in release_assets or []],
         "comparisons": comparisons,
         "documentation": cards,
         "limits": {"adapterBytesLessThan": MAX_SCION_ARTIFACT_BYTES},
     }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest

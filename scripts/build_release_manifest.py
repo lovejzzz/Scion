@@ -13,6 +13,7 @@ def main() -> None:
     parser.add_argument("--repo-root", type=Path, default=Path("."))
     parser.add_argument("--package", type=Path, action="append", required=True)
     parser.add_argument("--comparison", type=Path, action="append", required=True)
+    parser.add_argument("--asset", type=Path, action="append", default=[])
     parser.add_argument("--dataset-manifest", type=Path, default=Path("data/orpo/dataset-manifest.json"))
     parser.add_argument(
         "--output",
@@ -26,6 +27,7 @@ def main() -> None:
         comparison_paths=args.comparison,
         dataset_manifest_path=args.dataset_manifest,
         output_path=args.output,
+        release_assets=args.asset,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
 

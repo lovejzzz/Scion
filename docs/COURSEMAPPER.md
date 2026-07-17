@@ -35,6 +35,7 @@ python scripts/package_browser_adapter.py \
   --source-manifest artifacts/scion-lite-mlx/scion-adapter.json \
   --dataset-manifest data/orpo/dataset-manifest.json \
   --output-dir artifacts/scion-lite-browser \
+  --inference-scale 10 \
   --base-dir .cache/huggingface/models--google--gemma-4-E2B-it-qat-q4_0-unquantized/snapshots/1ca4dd94b623b6e0dd9da00c2239ab84b4f3e5ce
 ```
 
@@ -61,6 +62,13 @@ The first command verifies the dataset firewall, clean training run, manifest, a
 verifies the converted browser manifest and every inherited file. Browser/device activation remains a separate
 CourseMapper qualification step: a research package must not be presented as promoted merely because conversion
 worked.
+
+The completed package passes this validator with no issues. Its six inherited/conversion files total 26,383,787
+bytes, the GGUF LoRA SHA-256 is
+`b42e62fb55e70537690de6a2afb3c45950908bf4a7292728a52622e60e068cdf`, and scale `10` is part of the signed
+manifest. The exact pinned GGUF base plus pinned llama.cpp schema run scores 21/32 versus 20/32 base-only, with 29
+versus 30 deterministic issues and no category or citation regression. This small gain is the browser-package
+claim; the stronger 26/32 MLX result uses a different base and runtime.
 
 ## Product responsibilities
 

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from scion.browser_package import build_browser_adapter
+from scion.constants import LITE_BROWSER_INFERENCE_SCALE
 
 
 def main() -> None:
@@ -16,7 +17,7 @@ def main() -> None:
     parser.add_argument("--base-dir", type=Path, required=True)
     parser.add_argument("--llama-cpp", type=Path, default=Path(".cache/llama.cpp"))
     parser.add_argument("--bridge", type=Path, default=Path("scripts/convert_mlx_lora_to_peft.py"))
-    parser.add_argument("--inference-scale", type=float, default=16)
+    parser.add_argument("--inference-scale", type=float, default=LITE_BROWSER_INFERENCE_SCALE)
     args = parser.parse_args()
     result = build_browser_adapter(
         source_manifest_path=args.source_manifest,

@@ -42,6 +42,8 @@ MAX_SCION_ARTIFACT_BYTES = 1_000_000_000
 # CourseMapper applies a tighter browser lifecycle limit than the user-facing
 # one-gigabyte project requirement.  Lite must satisfy both.
 MAX_LITE_BROWSER_ARTIFACT_BYTES = 64 * 1024 * 1024
+# Selected on the validation split, then locked before the held-out GGUF run.
+LITE_BROWSER_INFERENCE_SCALE = 10.0
 LLAMA_CPP_REVISION = "5ec717d1256e34558a44dc09adf1e6e16f2e2682"
 LLAMA_CPP_LORA_CONVERTER_SHA256 = "7e82b74442df2faab81c30e7d83614d10905294cec92092ec2a1749700d1a378"
 BROWSER_CONVERSION_PIPELINE = "mlx-lora-to-peft-to-gguf-v1"

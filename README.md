@@ -12,6 +12,18 @@ The adapter is the Scion-specific artifact; the immutable base model is download
 adapter must remain below 1,000,000,000 bytes. Lite also obeys CourseMapper's tighter 64 MiB browser-package and
 two-percent-of-base limits.
 
+## Qualified research artifacts
+
+| Artifact | Adapter bytes | Locked result | Status |
+|---|---:|---|---|
+| Lite MLX | 52,808,169 | 26/32 vs base 2/32, strict raw JSON | research |
+| Lite browser GGUF | 26,370,912 (26,383,787-byte package) | 21/32 vs base 20/32, exact GGUF + JSON schema | research |
+| Pro MLX | 332,730,430 | 30/32 vs base 28/32, CourseMapper transport normalization | research |
+
+All three are below the one-gigabyte requirement. The browser package is 0.788% of its pinned 3.35 GB base and
+uses the validation-selected inference scale `10`. These numbers are paired results on the same locked 32 tasks,
+not general education benchmarks or evidence of improved student outcomes.
+
 ## What Scion learns
 
 Scion is trained for grounded course planning and educational behavior rather than memorizing a university
@@ -81,10 +93,16 @@ hyperparameters into its receipt.
 scion train --tier lite --smoke --local-files-only --output artifacts/scion-lite-smoke
 scion train --tier pro  --smoke --local-files-only --output artifacts/scion-pro-smoke
 
-# Full research runs
-scion train --tier lite --iterations 400 --local-files-only --output artifacts/scion-lite-mlx
-scion train --tier pro  --iterations 400 --local-files-only --output artifacts/scion-pro-mlx
+# Qualified research schedules
+scion train --tier lite --iterations 100 --local-files-only --output artifacts/scion-lite-mlx
+scion train --tier pro --smoke --local-files-only --output artifacts/smoke-pro-mlx
 ```
+
+The exact selected runs are bound to source commit `553d53571ed3dd339643bae17b2b6b300a216e08` in their training
+receipts. Lite uses 100 updates. Pro deliberately uses the qualified 10-update canary: longer and retuned Pro
+runs were evaluated and rejected for worse held-out stability. Use that historical commit when reproducing the
+released artifacts exactly; later source keeps the conservative experimental Pro schedule rather than silently
+claiming a replacement artifact.
 
 Package the trained adapters:
 
@@ -96,6 +114,7 @@ python scripts/package_mlx_adapter.py \
 python scripts/package_browser_adapter.py \
   --source-manifest artifacts/scion-lite-mlx/scion-adapter.json \
   --output-dir artifacts/scion-lite-browser \
+  --inference-scale 10 \
   --base-dir .cache/huggingface/models--google--gemma-4-E2B-it-qat-q4_0-unquantized/snapshots/1ca4dd94b623b6e0dd9da00c2239ab84b4f3e5ce
 ```
 
@@ -117,12 +136,34 @@ scion compare \
 ```
 
 A passing comparison requires a real overall improvement, fewer deterministic issues, no category regression,
-and no citation-hallucination regression. The dataset and resulting adapters are deliberately labeled
-**research**, not production or promoted: CourseMapper's production policy requires at least 3,000 verified
-preference pairs and broader evidence.
+and no citation-hallucination regression. Three separately labeled comparisons are shipped:
+
+| Evaluation path | Base | Adapter | Issue delta | Important boundary |
+|---|---:|---:|---:|---|
+| Lite MLX strict | 2/32 | 26/32 | -21 | Native unquantized training base; lesson kernels remain 0/4 |
+| Pro MLX CourseMapper | 28/32 | 30/32 | -2 | Only lossless Markdown-fence removal; no malformed or semantic repair |
+| Lite GGUF schema | 20/32 | 21/32 | -1 | Exact 3,349,514,112-byte runtime base and scale 10 in pinned llama.cpp |
+
+The GGUF run verifies the converted adapter and CourseMapper prompt/schema contract through pinned llama.cpp; it
+is not a WebGPU device-activation test. The native Lite result therefore must not be presented as browser quality.
+Full paired reports are included under `release/scion-3.0.0-research/evidence`.
+
+The dataset and resulting adapters are deliberately labeled **research**, not production or promoted:
+CourseMapper's production policy requires at least 3,000 verified preference pairs, at least five domains, and
+broader instructor and real-world evidence.
 
 See [MODEL_CARD.md](MODEL_CARD.md), [DATASET_CARD.md](DATASET_CARD.md), and
 [docs/COURSEMAPPER.md](docs/COURSEMAPPER.md) for limitations and integration details.
+
+Release archives contain only each package's `scion-adapter.json` and its checksum-covered files. They can be
+rebuilt byte-for-byte with:
+
+```bash
+python scripts/build_release_archives.py \
+  --package artifacts/scion-lite-mlx \
+  --package artifacts/scion-lite-browser \
+  --package artifacts/smoke-pro-mlx
+```
 
 ## Development
 

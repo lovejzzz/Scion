@@ -14,6 +14,7 @@ from typing import Any
 from .constants import (
     BROWSER_CONVERSION_PIPELINE,
     COURSEMAPPER_SOURCE_REVISION,
+    LITE_BROWSER_INFERENCE_SCALE,
     LITE_RUNTIME_BASE_BYTES,
     LITE_TRAIN_BASE_ID,
     LITE_TRAIN_BASE_REVISION,
@@ -116,7 +117,7 @@ def build_browser_adapter(
     base_dir: Path,
     llama_cpp_dir: Path,
     bridge_path: Path = Path("scripts/convert_mlx_lora_to_peft.py"),
-    inference_scale: float = 16,
+    inference_scale: float = LITE_BROWSER_INFERENCE_SCALE,
 ) -> dict[str, Any]:
     if not 0.05 <= inference_scale <= 16:
         raise ValueError("inference_scale must be between 0.05 and 16")

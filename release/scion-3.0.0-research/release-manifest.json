@@ -1,0 +1,409 @@
+{
+  "closedApiOutputUsed": false,
+  "comparisons": [
+    {
+      "adapter": {
+        "issueCount": 9,
+        "meanTokensPerSecond": 31.10928994878276,
+        "passCount": 26,
+        "passRate": 0.8125,
+        "peakMemoryGb": 11.443383674,
+        "protocol": "scion-locked-local-evaluation-v1"
+      },
+      "base": {
+        "issueCount": 30,
+        "meanTokensPerSecond": 57.03437548456164,
+        "passCount": 2,
+        "passRate": 0.0625,
+        "peakMemoryGb": 11.203166132,
+        "protocol": "scion-locked-local-evaluation-v1"
+      },
+      "checks": {
+        "noCategoryPassRateRegression": true,
+        "noHallucinatedCitationRegression": true,
+        "overallPassRateImproved": true,
+        "sameLocked32Fixtures": true,
+        "totalIssuesReduced": true
+      },
+      "deltas": {
+        "issueCount": -21,
+        "passRate": 0.75
+      },
+      "evidence": {
+        "bytes": 5034,
+        "path": "evidence/lite-mlx-strict.json",
+        "sha256": "51bf9b012d45d659468bd914985fb98148d7df8351d81b784c3f3c9d1ef46a5d",
+        "sourceSha256": "c7a9ad3feb934141c4efeb14f73ed74b7c7217c84ba8c59b6d0e46247bffcab2"
+      },
+      "id": "lite-mlx-strict",
+      "tier": "lite"
+    },
+    {
+      "adapter": {
+        "issueCount": 3,
+        "meanTokensPerSecond": 9.453353163941548,
+        "passCount": 30,
+        "passRate": 0.9375,
+        "peakMemoryGb": 25.570020064,
+        "protocol": "scion-coursemapper-runtime-normalized-evaluation-v1"
+      },
+      "base": {
+        "issueCount": 5,
+        "meanTokensPerSecond": 13.026619686673172,
+        "passCount": 28,
+        "passRate": 0.875,
+        "peakMemoryGb": 25.07138171,
+        "protocol": "scion-coursemapper-runtime-normalized-evaluation-v1"
+      },
+      "checks": {
+        "noCategoryPassRateRegression": true,
+        "noHallucinatedCitationRegression": true,
+        "overallPassRateImproved": true,
+        "sameLocked32Fixtures": true,
+        "totalIssuesReduced": true
+      },
+      "deltas": {
+        "issueCount": -2,
+        "passRate": 0.0625
+      },
+      "evidence": {
+        "bytes": 6162,
+        "path": "evidence/pro-mlx-coursemapper.json",
+        "sha256": "3c96f20159580b47e27542e30b08e45aa21eede78dad0117bd2d417c63c3ca81",
+        "sourceSha256": "c81bccf8790941b01c8b38176f59855f802f082d66819b24fe43bf0dcf9e109d"
+      },
+      "id": "pro-mlx-coursemapper",
+      "tier": "pro"
+    },
+    {
+      "adapter": {
+        "issueCount": 29,
+        "meanTokensPerSecond": 87.944835192861,
+        "passCount": 21,
+        "passRate": 0.65625,
+        "protocol": "scion-locked-gguf-schema-evaluation-v1"
+      },
+      "base": {
+        "issueCount": 30,
+        "meanTokensPerSecond": 119.76888783914704,
+        "passCount": 20,
+        "passRate": 0.625,
+        "protocol": "scion-locked-gguf-schema-evaluation-v1"
+      },
+      "checks": {
+        "noCategoryPassRateRegression": true,
+        "noHallucinatedCitationRegression": true,
+        "overallPassRateImproved": true,
+        "sameLocked32Fixtures": true,
+        "totalIssuesReduced": true
+      },
+      "deltas": {
+        "issueCount": -1,
+        "passRate": 0.03125
+      },
+      "evidence": {
+        "bytes": 5842,
+        "path": "evidence/lite-gguf-schema.json",
+        "sha256": "1b70ac16978bdebc041aa592907d8b8a4505cf9e1b4a4662955bd5043df89c97",
+        "sourceSha256": "d17cb567b71c57d9a43dd7cf14ea3d84c0951a73e7a62a05349ad6bf52b129f6"
+      },
+      "id": "lite-gguf-schema",
+      "tier": "lite"
+    }
+  ],
+  "dataset": {
+    "counts": {
+      "blindInstructorDomains": 0,
+      "blindInstructorPairs": 0,
+      "domains": 4,
+      "groups": 96,
+      "loaded": 224,
+      "quarantined": 0,
+      "singleModelJudgeDomains": 4,
+      "singleModelJudgePairs": 224,
+      "test": 32,
+      "testDomains": 4,
+      "total": 224,
+      "train": 160,
+      "trainDomains": 4,
+      "valid": 32,
+      "validDomains": 4
+    },
+    "identitySha256": "dcf75cfdf30c57ecc7ebf3084c3b63042fa686926942563246f669eb9b0b45b8",
+    "manifestSha256": "897bf867588fa9944a2e574f4e2d5bc864d5b53e11b279dc0d50175d91af37fb",
+    "status": "research-ready"
+  },
+  "documentation": [
+    {
+      "bytes": 8143,
+      "path": "README.md",
+      "sha256": "090c54a8780ec803703c55786414c1e8a00a774a2c6e8a1b079c02f6de947ec6"
+    },
+    {
+      "bytes": 5677,
+      "path": "MODEL_CARD.md",
+      "sha256": "ba9aeb274a08d24ae7051fedf4e525a68be06eaed9079d7b92eccb9bcae9fddd"
+    },
+    {
+      "bytes": 3669,
+      "path": "DATASET_CARD.md",
+      "sha256": "86ee2c495fd81d4e6e80f409c770873d88b4a8ffddc2661989e4eb63eab0cf1a"
+    },
+    {
+      "bytes": 1338,
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "e47f58fb41bf52c2933d185dfa8e4daf4988b77d92895da6510a0b43b9d63d65"
+    },
+    {
+      "bytes": 10763,
+      "path": "LICENSE",
+      "sha256": "d2be544afec7c5a0bdbe2e851d911601909c0d48b9a7c1082afae6b2e7f53426"
+    }
+  ],
+  "externalSpendUsd": 0,
+  "generatedAt": "2026-07-17T23:19:33.534944+00:00",
+  "limits": {
+    "adapterBytesLessThan": 1000000000
+  },
+  "models": {
+    "critic": {
+      "bytes": 18444421751,
+      "filename": null,
+      "format": "mlx-affine-4bit-safetensors",
+      "license": "Apache-2.0",
+      "model_id": "mlx-community/gemma-4-31b-it-4bit",
+      "required": true,
+      "revision": "696d436c404745a59f30e4939a658162b0a9e57f",
+      "role": "independent-critic",
+      "sha256": null
+    },
+    "lite-runtime": {
+      "bytes": 3349514112,
+      "filename": "gemma-4-E2B_q4_0-it.gguf",
+      "format": "gguf-q4_0",
+      "license": "Apache-2.0",
+      "model_id": "google/gemma-4-E2B-it-qat-q4_0-gguf",
+      "required": true,
+      "revision": "69536a21d70340464240401ba38223d805f6a709",
+      "role": "student-lite-runtime-base",
+      "sha256": "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd"
+    },
+    "lite-train": {
+      "bytes": null,
+      "filename": "model.safetensors",
+      "format": "gemma4-qat-unquantized-safetensors",
+      "license": "Apache-2.0",
+      "model_id": "google/gemma-4-E2B-it-qat-q4_0-unquantized",
+      "required": true,
+      "revision": "1ca4dd94b623b6e0dd9da00c2239ab84b4f3e5ce",
+      "role": "student-lite-training-base",
+      "sha256": "33fe0cece08fb527ffefbd1a3a9ce73bd71073727993a283506293e5c6bf0137"
+    },
+    "optional-teacher": {
+      "bytes": null,
+      "filename": null,
+      "format": "mlx-optiq-2bit-safetensors",
+      "license": "Apache-2.0",
+      "model_id": "mlx-community/Qwen3.5-122B-A10B-OptiQ-2bit",
+      "required": false,
+      "revision": "1081c89e171447884d329abd7232566ebd38737c",
+      "role": "optional-escalation-teacher",
+      "sha256": null
+    },
+    "pro-runtime": {
+      "bytes": 6975878912,
+      "filename": "gemma-4-12b-it-qat-q4_0.gguf",
+      "format": "gguf-q4_0",
+      "license": "Apache-2.0",
+      "model_id": "google/gemma-4-12B-it-qat-q4_0-gguf",
+      "required": true,
+      "revision": "52fc21bb53de9eee244769c432935eeee38488eb",
+      "role": "student-pro-runtime-base",
+      "sha256": "1e76e46623deaa4db97d4ef272ceab0dfb767c0f34c2c76524837edf2b57a510"
+    },
+    "pro-train": {
+      "bytes": null,
+      "filename": "model.safetensors",
+      "format": "gemma4-qat-unquantized-safetensors",
+      "license": "Apache-2.0",
+      "model_id": "google/gemma-4-12B-it-qat-q4_0-unquantized",
+      "required": true,
+      "revision": "b8dea52d5ea56a20e8872f0ee5d25ada7501327e",
+      "role": "student-pro-training-base",
+      "sha256": "26f2cee4292298a3f9f92209643c37c80e34e011381e22434088870d9439a0a0"
+    },
+    "teacher": {
+      "bytes": null,
+      "filename": null,
+      "format": "mlx-8bit-safetensors",
+      "license": "Apache-2.0",
+      "model_id": "mlx-community/Qwen3.6-27B-8bit",
+      "required": true,
+      "revision": "c5a593c1475a746e43a543b0a02bd2b357e5745f",
+      "role": "primary-teacher",
+      "sha256": null
+    }
+  },
+  "optional122BTeacherUsed": false,
+  "packages": [
+    {
+      "adapterId": "scion-g4e2b-research-bd36bd9af98b30c2",
+      "base": {
+        "architecture": "gemma4",
+        "exactRevisionRequired": true,
+        "modelId": "google/gemma-4-E2B-it-qat-q4_0-unquantized",
+        "revision": "1ca4dd94b623b6e0dd9da00c2239ab84b4f3e5ce",
+        "role": "instruction"
+      },
+      "files": [
+        {
+          "bytes": 15687,
+          "path": "adapter_config.json",
+          "sha256": "6437457e96665e5af66463ba4d022224b1c36b7cf049ce3894468c9b7bd78aaa"
+        },
+        {
+          "bytes": 52792482,
+          "path": "adapters.safetensors",
+          "sha256": "41f9506b5c46f4468eeb26387959f9977b5dfeb9c592ec759d20397458e56571"
+        },
+        {
+          "bytes": 4522,
+          "path": "training-plan.json",
+          "sha256": "63693bcd7105cea80b2fd337754dd840c0263abc82e6523606aea8df8559674f"
+        },
+        {
+          "bytes": 1108,
+          "path": "training-result.json",
+          "sha256": "a8872b244c28ada161bef6cbe4c737b5718e9a9ec433d52f8b0bb48416ac4ee8"
+        },
+        {
+          "bytes": 1390,
+          "path": "token-audit.json",
+          "sha256": "0bdb48b3ca089546cf619b23c3f3a828c33c0c8110b47723252c4cf1f2e1f94a"
+        }
+      ],
+      "format": "mlx-lora-safetensors",
+      "manifest": {
+        "bytes": 3642,
+        "sha256": "a30ae1b8c88dd6da58ae06de3a5468f74cd25ae404b79b2846aa6fdede4ac2b0"
+      },
+      "name": "scion-lite-mlx",
+      "totalFileBytes": 52815189
+    },
+    {
+      "adapterId": "scion-g4e2b-research-bd36bd9af98b30c2-browser",
+      "base": {
+        "architecture": "gemma4",
+        "exactRevisionRequired": true,
+        "modelId": "google/gemma-4-E2B-it-qat-q4_0-unquantized",
+        "revision": "1ca4dd94b623b6e0dd9da00c2239ab84b4f3e5ce",
+        "role": "instruction"
+      },
+      "files": [
+        {
+          "bytes": 26370912,
+          "path": "scion-g4e2b-research-bd36bd9af98b30c2-browser.gguf",
+          "sha256": "b42e62fb55e70537690de6a2afb3c45950908bf4a7292728a52622e60e068cdf"
+        },
+        {
+          "bytes": 2213,
+          "path": "conversion-receipt.json",
+          "sha256": "2f46764f5155ca0665d472e69c0e3e19eb3c5ebb756b0676569ea665b84f4e89"
+        },
+        {
+          "bytes": 4522,
+          "path": "training-plan.json",
+          "sha256": "63693bcd7105cea80b2fd337754dd840c0263abc82e6523606aea8df8559674f"
+        },
+        {
+          "bytes": 1108,
+          "path": "training-result.json",
+          "sha256": "a8872b244c28ada161bef6cbe4c737b5718e9a9ec433d52f8b0bb48416ac4ee8"
+        },
+        {
+          "bytes": 1390,
+          "path": "token-audit.json",
+          "sha256": "0bdb48b3ca089546cf619b23c3f3a828c33c0c8110b47723252c4cf1f2e1f94a"
+        },
+        {
+          "bytes": 3642,
+          "path": "source-adapter-manifest.json",
+          "sha256": "a30ae1b8c88dd6da58ae06de3a5468f74cd25ae404b79b2846aa6fdede4ac2b0"
+        }
+      ],
+      "format": "gguf-lora",
+      "manifest": {
+        "bytes": 4843,
+        "sha256": "c90f7d0cc13ff585f361793f9c39375da166cba43911ccb3d47e8d803ec473f3"
+      },
+      "name": "scion-lite-browser",
+      "totalFileBytes": 26383787
+    },
+    {
+      "adapterId": "scion-g4-12b-research-ec8429193f90ea33",
+      "base": {
+        "architecture": "gemma4",
+        "exactRevisionRequired": true,
+        "modelId": "google/gemma-4-12B-it-qat-q4_0-unquantized",
+        "revision": "b8dea52d5ea56a20e8872f0ee5d25ada7501327e",
+        "role": "instruction"
+      },
+      "files": [
+        {
+          "bytes": 18250,
+          "path": "adapter_config.json",
+          "sha256": "4109b57b40bf21e2d0e4f90b669bdf83406b4261620d91a0761d501ae8857dbc"
+        },
+        {
+          "bytes": 332712180,
+          "path": "adapters.safetensors",
+          "sha256": "d1ca8f3445feae338cd3cb43f30116da9cad65bf5ab0d2d058812344a6a9c0a7"
+        },
+        {
+          "bytes": 4529,
+          "path": "training-plan.json",
+          "sha256": "9a23e9f4aa01d2763fa8251b04d6efacdcf7e967798f1eb32240c557ec68c434"
+        },
+        {
+          "bytes": 1111,
+          "path": "training-result.json",
+          "sha256": "f4159ea5221b2d38e9f41e9b894fc7db089d1f5c00c68c38c7261aea791c1fa4"
+        },
+        {
+          "bytes": 1398,
+          "path": "token-audit.json",
+          "sha256": "56d583450b6a5ffb2273ed07a736a4183c9eb8365304a73800d1cbb71984a7cf"
+        }
+      ],
+      "format": "mlx-lora-safetensors",
+      "manifest": {
+        "bytes": 3645,
+        "sha256": "4db10d683a7d08afedb84114761bd6cc2763e14de8cb19f98f5b111ff7b86ce9"
+      },
+      "name": "smoke-pro-mlx",
+      "totalFileBytes": 332737468
+    }
+  ],
+  "promotable": false,
+  "protocol": "scion-research-release-v1",
+  "releaseAssets": [
+    {
+      "bytes": 48791286,
+      "name": "scion-lite-mlx-v3.0.0-research.1.tar.gz",
+      "sha256": "cea9942f24d3fdd57c9234b2bce3fbf859f8e0ba495cc7fd4b4e224a3c0a4dc3"
+    },
+    {
+      "bytes": 24189150,
+      "name": "scion-lite-browser-v3.0.0-research.1.tar.gz",
+      "sha256": "b30cbce944afe8064beb67d0ff877e2ba3dc8abb7201d5f3ce8b8e4bd03dc4e4"
+    },
+    {
+      "bytes": 297164518,
+      "name": "smoke-pro-mlx-v3.0.0-research.1.tar.gz",
+      "sha256": "4f2eb3e5d4c9075f5e74245f7c880b87420d4c5c8a84bce4086fbbc5bc1c2c8a"
+    }
+  ],
+  "schemaVersion": 1,
+  "status": "research",
+  "version": "3.0.0"
+}

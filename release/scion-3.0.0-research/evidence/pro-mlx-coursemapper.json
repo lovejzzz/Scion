@@ -1,0 +1,216 @@
+{
+  "adapter": {
+    "byCategory": {
+      "coursemapper-kernel": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "degree-audit": {
+        "count": 4,
+        "issueCount": 1,
+        "passCount": 3,
+        "passRate": 0.75
+      },
+      "prerequisite-reasoning": {
+        "count": 4,
+        "issueCount": 2,
+        "passCount": 3,
+        "passRate": 0.75
+      },
+      "safe-education": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "schedule-constraints": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "tool-use": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "tutoring": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "uncertainty-grounding": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      }
+    },
+    "fixtures": {
+      "count": 32,
+      "path": "data/seeds/heldout.jsonl",
+      "selectedIdsSha256": "a4274c0083134018f092c19e6a150b9c09d50568205b7e139133891fc05eea8b",
+      "sha256": "81c36de2a8520850b4173d7aedb20093ecbfac202894ce0fafb3048925b28e24",
+      "trainingUseForbidden": true
+    },
+    "generatedAt": "2026-07-17T22:33:01.189405+00:00",
+    "issueCount": 3,
+    "issueKinds": {
+      "wrong-eligibleOptions": 1,
+      "wrong-missingImmediate": 1,
+      "wrong-recommendedSequence": 1
+    },
+    "meanTokensPerSecond": 9.453353163941548,
+    "model": {
+      "adapter": {
+        "files": [
+          {
+            "bytes": 18250,
+            "path": "adapter_config.json",
+            "sha256": "4109b57b40bf21e2d0e4f90b669bdf83406b4261620d91a0761d501ae8857dbc"
+          },
+          {
+            "bytes": 332712180,
+            "path": "adapters.safetensors",
+            "sha256": "d1ca8f3445feae338cd3cb43f30116da9cad65bf5ab0d2d058812344a6a9c0a7"
+          }
+        ],
+        "path": "artifacts/smoke-pro-mlx"
+      },
+      "id": "google/gemma-4-12B-it-qat-q4_0-unquantized",
+      "revision": "b8dea52d5ea56a20e8872f0ee5d25ada7501327e"
+    },
+    "normalization": {
+      "courseMapperRevision": "4f5bed3833f72494917e67c1a0c878af8c2b9a70",
+      "id": "coursemapper-lossless-fence-repair-v1",
+      "malformedJsonRepairUsed": false,
+      "scope": "transport-only",
+      "semanticRepairUsed": false
+    },
+    "passCount": 30,
+    "passRate": 0.9375,
+    "peakMemoryGb": 25.570020064,
+    "protocol": "scion-coursemapper-runtime-normalized-evaluation-v1",
+    "resultsSha256": "e57d7ff3e24b8998d0135e57ac36e9929f45eb2820ac95feb42d665ca5ccd066",
+    "schemaVersion": 1,
+    "sourceEvaluation": {
+      "protocol": "scion-locked-local-evaluation-v1",
+      "reportSha256": "74a08c2117f0b553a37d9cc6f09781e4ea63027e0242dca4f98c660449b638b9",
+      "resultsSha256": "f195b71b5c23e1ebc8015768e8a26cddc04b353f199c24c3f4fe9ff736e46a87"
+    },
+    "tier": "pro",
+    "variant": "adapter"
+  },
+  "base": {
+    "byCategory": {
+      "coursemapper-kernel": {
+        "count": 4,
+        "issueCount": 1,
+        "passCount": 3,
+        "passRate": 0.75
+      },
+      "degree-audit": {
+        "count": 4,
+        "issueCount": 2,
+        "passCount": 2,
+        "passRate": 0.5
+      },
+      "prerequisite-reasoning": {
+        "count": 4,
+        "issueCount": 2,
+        "passCount": 3,
+        "passRate": 0.75
+      },
+      "safe-education": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "schedule-constraints": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "tool-use": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "tutoring": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      },
+      "uncertainty-grounding": {
+        "count": 4,
+        "issueCount": 0,
+        "passCount": 4,
+        "passRate": 1.0
+      }
+    },
+    "fixtures": {
+      "count": 32,
+      "path": "data/seeds/heldout.jsonl",
+      "selectedIdsSha256": "a4274c0083134018f092c19e6a150b9c09d50568205b7e139133891fc05eea8b",
+      "sha256": "81c36de2a8520850b4173d7aedb20093ecbfac202894ce0fafb3048925b28e24",
+      "trainingUseForbidden": true
+    },
+    "generatedAt": "2026-07-17T22:32:59.233580+00:00",
+    "issueCount": 5,
+    "issueKinds": {
+      "key-term-0:key-term-mi": 1,
+      "wrong-eligibleOptions": 2,
+      "wrong-missingImmediate": 1,
+      "wrong-recommendedSequence": 1
+    },
+    "meanTokensPerSecond": 13.026619686673172,
+    "model": {
+      "adapter": null,
+      "id": "google/gemma-4-12B-it-qat-q4_0-unquantized",
+      "revision": "b8dea52d5ea56a20e8872f0ee5d25ada7501327e"
+    },
+    "normalization": {
+      "courseMapperRevision": "4f5bed3833f72494917e67c1a0c878af8c2b9a70",
+      "id": "coursemapper-lossless-fence-repair-v1",
+      "malformedJsonRepairUsed": false,
+      "scope": "transport-only",
+      "semanticRepairUsed": false
+    },
+    "passCount": 28,
+    "passRate": 0.875,
+    "peakMemoryGb": 25.07138171,
+    "protocol": "scion-coursemapper-runtime-normalized-evaluation-v1",
+    "resultsSha256": "edf16495135b98ebbb664e50970ccea6e197d6f0ecc87403ac8c8d0c79421a06",
+    "schemaVersion": 1,
+    "sourceEvaluation": {
+      "protocol": "scion-locked-local-evaluation-v1",
+      "reportSha256": "2d8b336cfe4d9d28f08bf56854a765e320292122ce9262af4598e8e0475697bb",
+      "resultsSha256": "940c5cf073f1653e6c61a3caa35a52d76b12342569f08e5f9d3e97eab18006a7"
+    },
+    "tier": "pro",
+    "variant": "base"
+  },
+  "categoryRegressions": [],
+  "checks": {
+    "noCategoryPassRateRegression": true,
+    "noHallucinatedCitationRegression": true,
+    "overallPassRateImproved": true,
+    "sameLocked32Fixtures": true,
+    "totalIssuesReduced": true
+  },
+  "deltas": {
+    "issueCount": -2,
+    "passRate": 0.0625
+  },
+  "protocol": "scion-paired-promotion-comparison-v1",
+  "schemaVersion": 1,
+  "status": "pass"
+}

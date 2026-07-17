@@ -25,9 +25,8 @@ high-stakes professional advice.
 - Primary teacher: local Qwen3.6 27B 8-bit, deterministic or low-temperature generation.
 - Independent critic: local Gemma 4 31B Q4 with blind A/B label randomization.
 - Students: exact Gemma 4 E2B and 12B QAT checkpoints.
-- Method: ORPO LoRA, rank 8 for Lite and rank 16 for Pro, alpha 16, learning rate 2e-5, beta 0.1,
-  batch size 1, gradient accumulation 2,
-  gradient checkpointing, and a 2,048-token limit.
+- Method: ORPO LoRA with beta 0.1, batch size 1, gradient accumulation 2, gradient checkpointing, and a
+  2,048-token limit.
 - Training data: only pairs that pass both a deterministic task oracle and the blind independent critic.
 - Reproducibility: exact model revisions, file hashes, clean Git tree, package versions, seed, dataset identity,
   token-length audit, training log, and adapter checksums are recorded in release receipts.
@@ -35,12 +34,37 @@ high-stakes professional advice.
 No closed API output is present in the training corpus. The pinned 122B escalation model is not used unless a
 recorded gate demonstrates that it is necessary.
 
+The released run configurations are:
+
+| Tier | Updates | Rank / alpha | Learning rate | Adapter bytes | Peak training memory |
+|---|---:|---:|---:|---:|---:|
+| Lite | 100 | 8 / 16 | 2e-5 | 52,808,169 | 35.91 GB |
+| Pro | 10 | 16 / 16 | 2e-5 | 332,730,430 | 38.45 GB |
+
+The selected Pro artifact is the 10-update canary. A 100-update rank-16 run memorized the small corpus and failed
+to improve held-out behavior; a lower-rank retune also failed its early held-out check. Neither rejected run is
+represented as the release model.
+
 ## Evaluation
 
 Each base and adapter is evaluated with deterministic decoding on the same locked 32-task benchmark, balanced
-across all eight capabilities. Promotion logic requires higher pass rate, fewer issues, no capability regression,
-and no citation-hallucination regression. The package's `training-result.json`, evaluation reports, and model
-manifest are the authority for completed-run measurements.
+across all eight capabilities. Qualification logic requires higher pass rate, fewer issues, no capability
+regression, and no citation-hallucination regression.
+
+| Package / protocol | Base pass | Adapter pass | Base issues | Adapter issues |
+|---|---:|---:|---:|---:|
+| Lite MLX, strict raw JSON | 2/32 | 26/32 | 30 | 9 |
+| Pro MLX, CourseMapper lossless fence normalization | 28/32 | 30/32 | 5 | 3 |
+| Lite GGUF, exact base + JSON-schema decoding | 20/32 | 21/32 | 30 | 29 |
+
+The Pro normalization strips only an outer Markdown code fence and performs no malformed-JSON or semantic repair.
+The GGUF comparison uses the exact pinned 3,349,514,112-byte runtime base, pinned llama.cpp, the CourseMapper
+prompt, JSON schemas, and the validation-selected scale `10`. It preserves the four CourseMapper kernel cases and
+adds one schedule-constraint pass. It is a conversion/runtime semantic check, not WebGPU activation evidence.
+
+The large Lite MLX gain does not transfer unchanged to the quantized GGUF runtime; browser quality improves only
+modestly. The package's `training-result.json`, paired evidence, and model manifest are the authority for these
+completed-run measurements.
 
 This benchmark measures contract adherence and bounded reasoning on fictional tasks. It does not measure student
 learning outcomes, broad subject expertise, fairness across populations, or correctness on a live university
@@ -55,6 +79,8 @@ catalog.
 - Subject facts are intentionally sparse; using the model without CourseMapper retrieval increases hallucination
   risk.
 - The Lite quantized browser base trades quality for memory and download size.
+- The Lite native strict evaluation still fails all four lesson-kernel cases, while schema-constrained GGUF
+  decoding passes those four cases from the base; results are protocol-specific and cannot be mixed.
 - Safety examples are bounded academic scenarios, not a comprehensive safety evaluation.
 
 CourseMapper must retain schema validation, citation checks, tool boundaries, visible editing, and a base-only
@@ -64,6 +90,9 @@ rollback path. Human review remains required before publishing educational mater
 
 Each Scion-specific adapter must be below 1,000,000,000 bytes. The Lite browser package must additionally stay
 below 64 MiB and two percent of the 3,349,514,112-byte pinned runtime base. Base weights are not bundled.
+
+The qualified GGUF LoRA is 26,370,912 bytes and its complete browser package is 26,383,787 bytes. Its SHA-256 is
+`b42e62fb55e70537690de6a2afb3c45950908bf4a7292728a52622e60e068cdf`.
 
 Scion code and synthetic data are Apache-2.0. Model and dependency terms remain those of their upstream projects;
 see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
