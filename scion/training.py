@@ -177,7 +177,7 @@ def build_training_plan(
         "maxSequenceLength": 2048,
         "gradientCheckpointing": True,
         "gradientAccumulationSteps": 2,
-        "loraRank": 16,
+        "loraRank": 8 if tier == "lite" else 16,
         "loraAlpha": 16,
         "loraDropout": 0,
         "beta": 0.1,

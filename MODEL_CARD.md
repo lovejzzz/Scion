@@ -25,7 +25,8 @@ high-stakes professional advice.
 - Primary teacher: local Qwen3.6 27B 8-bit, deterministic or low-temperature generation.
 - Independent critic: local Gemma 4 31B Q4 with blind A/B label randomization.
 - Students: exact Gemma 4 E2B and 12B QAT checkpoints.
-- Method: ORPO LoRA, rank 16, alpha 16, learning rate 2e-5, beta 0.1, batch size 1, gradient accumulation 2,
+- Method: ORPO LoRA, rank 8 for Lite and rank 16 for Pro, alpha 16, learning rate 2e-5, beta 0.1,
+  batch size 1, gradient accumulation 2,
   gradient checkpointing, and a 2,048-token limit.
 - Training data: only pairs that pass both a deterministic task oracle and the blind independent critic.
 - Reproducibility: exact model revisions, file hashes, clean Git tree, package versions, seed, dataset identity,
