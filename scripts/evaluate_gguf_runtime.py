@@ -12,6 +12,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", default="http://127.0.0.1:8798")
     parser.add_argument("--fixtures", type=Path, default=Path("data/seeds/heldout.jsonl"))
+    parser.add_argument("--split", default="heldout")
     parser.add_argument("--runtime-base", type=Path, required=True)
     parser.add_argument("--variant", choices=("base", "adapter"), required=True)
     parser.add_argument("--adapter-manifest", type=Path)
@@ -27,6 +28,7 @@ def main() -> None:
                 runtime_base_path=args.runtime_base,
                 output_dir=args.output,
                 variant=args.variant,
+                split=args.split,
                 adapter_manifest_path=args.adapter_manifest,
                 adapter_id=args.adapter_id,
                 adapter_scale=args.adapter_scale,

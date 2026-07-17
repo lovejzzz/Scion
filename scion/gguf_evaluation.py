@@ -78,6 +78,7 @@ def evaluate_gguf_runtime(
     runtime_base_path: Path,
     output_dir: Path,
     variant: str,
+    split: str = "heldout",
     adapter_manifest_path: Path | None = None,
     adapter_id: int = 0,
     adapter_scale: float = 0,
@@ -102,7 +103,9 @@ def evaluate_gguf_runtime(
         if variant == "adapter" and float(adapter["adapter"]["scale"]) != float(adapter_scale):
             raise RuntimeError("GGUF evaluation scale does not match the package manifest")
 
-    fixtures = [row for row in _rows(fixture_path) if row.get("split") == "heldout"]
+    fixtures = [row for row in _rows(fixture_path) if row.get("split") == split]
+    if not fixtures:
+        raise RuntimeError(f"GGUF evaluation found no {split} fixtures")
     results = []
     for position, fixture in enumerate(fixtures):
         max_tokens = 1900 if fixture["contract"] == "coursemapper-kernel-json-v1" else 700
@@ -183,7 +186,8 @@ def evaluate_gguf_runtime(
                 json.dumps(selected_ids, separators=(",", ":")).encode()
             ).hexdigest(),
             "count": len(fixtures),
-            "trainingUseForbidden": True,
+            "split": split,
+            "trainingUseForbidden": split == "heldout",
         },
         **_summarize_results(results),
         "resultsSha256": _sha256(result_path),
