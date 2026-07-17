@@ -97,6 +97,13 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def student_model_type(tier: str) -> str:
+    try:
+        return {"lite": "gemma4", "pro": "gemma4_unified"}[tier]
+    except KeyError as error:
+        raise ValueError("tier must be lite or pro") from error
+
+
 def resolve_student_snapshot(tier: str, cache_dir: Path, *, local_files_only: bool = False) -> Path:
     pin = student_pin(tier)
     path = Path(
@@ -110,7 +117,7 @@ def resolve_student_snapshot(tier: str, cache_dir: Path, *, local_files_only: bo
     if path.name != pin.revision:
         raise RuntimeError(f"resolved mutable snapshot: {path}")
     config = json.loads((path / "config.json").read_text(encoding="utf-8"))
-    if config.get("model_type") != "gemma4":
+    if config.get("model_type") != student_model_type(tier):
         raise RuntimeError(f"student base is not Gemma 4: {path}")
     return path
 
@@ -241,7 +248,7 @@ def build_training_plan(
         "base": {
             "modelId": pin.model_id,
             "revision": pin.revision,
-            "architecture": "gemma4",
+            "architecture": student_model_type(tier),
             "role": "instruction",
             "exactRevisionRequired": True,
             "snapshotRevision": model_path.resolve().name,
