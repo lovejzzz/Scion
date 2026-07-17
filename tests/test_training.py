@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from scion.training import _dataset_identity
+from scion.training import _dataset_identity, _stable_json
+
+
+def test_training_identity_json_matches_javascript_number_spelling() -> None:
+    assert _stable_json({"epsilon": 1e-8, "learningRate": 0.00002, "beta": 0.1}) == (
+        '{"beta":0.1,"epsilon":1e-8,"learningRate":0.00002}'
+    )
 
 
 def test_dataset_identity_requires_all_three_nonempty_splits(tmp_path: Path) -> None:

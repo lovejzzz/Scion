@@ -5,10 +5,12 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import json
+import math
 import platform
 import subprocess
 import sys
 from datetime import UTC, datetime
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -27,16 +29,46 @@ from .token_audit import audit_orpo_lengths
 
 
 def _stable_json(value: Any) -> str:
-    normalized = [_stable_value(item) for item in value] if isinstance(value, list) else _stable_value(value)
-    return json.dumps(normalized, separators=(",", ":"), sort_keys=True)
+    """Match CourseMapper's canonical JSON, including JavaScript number spelling."""
 
-
-def _stable_value(value: Any) -> Any:
-    if isinstance(value, list):
-        return [_stable_value(item) for item in value]
+    if value is None:
+        return "null"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("canonical training identities require finite numbers")
+        if value == 0:
+            return "0"
+        raw = repr(value).lower()
+        decimal = Decimal(raw)
+        magnitude = abs(decimal)
+        if Decimal("1e-6") <= magnitude < Decimal("1e21"):
+            rendered = format(decimal, "f")
+            return rendered.rstrip("0").rstrip(".") if "." in rendered else rendered
+        if "e" not in raw:
+            raw = format(decimal.normalize(), "e")
+        mantissa, exponent = raw.split("e", 1)
+        if "." in mantissa:
+            mantissa = mantissa.rstrip("0").rstrip(".")
+        exponent_value = int(exponent)
+        exponent_sign = "+" if exponent_value >= 0 else ""
+        return f"{mantissa}e{exponent_sign}{exponent_value}"
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(value, (list, tuple)):
+        return "[" + ",".join(_stable_json(item) for item in value) + "]"
     if isinstance(value, dict):
-        return {key: _stable_value(value[key]) for key in sorted(value)}
-    return value
+        if not all(isinstance(key, str) for key in value):
+            raise TypeError("canonical training identities require string object keys")
+        return "{" + ",".join(
+            f"{_stable_json(key)}:{_stable_json(value[key])}" for key in sorted(value)
+        ) + "}"
+    raise TypeError(f"unsupported canonical identity value: {type(value).__name__}")
 
 
 def _sha256_value(value: Any) -> str:
