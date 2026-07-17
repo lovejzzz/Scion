@@ -92,20 +92,45 @@ def launch(argv: list[str]) -> None:
     if forwarded and forwarded[0] == "--":
         forwarded = forwarded[1:]
 
+    import datasets
     import mlx.core as mx
     import numpy as np
-    from datasets import load_dataset
     from mlx_vlm.trainer import orpo_trainer
 
     np.random.seed(seed)
     mx.random.seed(seed)
     dataset_path = _forwarded_value(forwarded, "--dataset")
+    dataset_root = Path(dataset_path).resolve()
+    data_files = {
+        split: str((dataset_root / file_name).resolve())
+        for split, file_name in {
+            "train": "train.jsonl",
+            "validation": "validation.jsonl",
+            "test": "test.jsonl",
+        }.items()
+    }
+    missing = [path for path in data_files.values() if not Path(path).is_file()]
+    if missing:
+        raise RuntimeError(f"explicit ORPO split files are missing: {missing}")
+    original_load_dataset = datasets.load_dataset
+
+    def load_explicit_dataset(path, *args, **kwargs):
+        try:
+            requested = Path(path).resolve()
+        except TypeError:
+            requested = None
+        if requested == dataset_root:
+            kwargs.pop("data_files", None)
+            return original_load_dataset("json", data_files=data_files, **kwargs)
+        return original_load_dataset(path, *args, **kwargs)
+
+    datasets.load_dataset = load_explicit_dataset
     original = orpo_trainer.train_orpo
 
     def with_validation(*, train_dataset, val_dataset=None, **kwargs):
         if val_dataset is not None:
             raise RuntimeError("upstream unexpectedly provided validation data")
-        raw = load_dataset(dataset_path, split=validation_split)
+        raw = original_load_dataset("json", data_files=data_files, split=validation_split)
         if len(raw) == 0:
             raise RuntimeError(f"validation split is empty: {validation_split}")
         validation = train_dataset.__class__(
@@ -122,6 +147,7 @@ def launch(argv: list[str]) -> None:
         runpy.run_module("mlx_vlm.lora", run_name="__main__", alter_sys=True)
     finally:
         orpo_trainer.train_orpo = original
+        datasets.load_dataset = original_load_dataset
 
 
 def main(argv: list[str]) -> None:
