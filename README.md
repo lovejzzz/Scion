@@ -1,113 +1,101 @@
-# Scion
+# Scion Bonsai 27B
 
-**The house model of the CourseMapper / Trellis lab stack — a customized,
-$0-per-call course-authoring model that runs on your own machine.**
+Scion is the CourseMapper education adapter for PrismML Bonsai 27B. It trains a small LoRA on
+CourseMapper's lesson, assessment, key-term, and source-grounding contracts, converts it to GGUF,
+and serves it through the OpenAI-compatible endpoint CourseMapper already expects:
+`http://127.0.0.1:8799`, model `scion-1`.
 
-Scion is not a base model you download. It is a *graft*: in horticulture a
-scion is the cultivated cutting grafted onto wild rootstock. Here the
-rootstock is Google's open-weights **Gemma 4 E2B** (~4B params, Apache-2.0,
-Apple-Silicon via MLX); the scion — the part we cultivated — is a harness of
-grammar-constrained decoding, per-lesson contracts, self-verification, and now
-a preference-trained LoRA adapter. The first trained cut ships as **Scion-1**.
+## Size contract
 
-This repo is the **training + serving package**, split out from the main
-CourseMapper app so it can be trained on a machine with enough unified memory.
+The separately delivered **Scion adapter must be below 1,000,000,000 bytes**. PrismML's pinned
+`Bonsai-27B-Q1_0.gguf` base is 3,803,452,480 bytes and is downloaded independently. A complete
+27B model below 1 GB is not technically possible with this checkpoint; the sub-1 GB promise is
+therefore enforced on the Scion-specific artifact and its receipts, not on the shared base.
 
----
+## What is pinned
 
-## Why Scion exists
+| Component | Immutable identity |
+|---|---|
+| Training checkpoint | `prism-ml/Bonsai-27B-unpacked@d619b27283ac02b4199ced97a89419529dc0bfac` |
+| Serving checkpoint | `prism-ml/Bonsai-27B-gguf@0cf7e3d21581b169b4df1de8bf01316000e2fbb7` |
+| Serving file | `Bonsai-27B-Q1_0.gguf`, SHA-256 `17ef842e…f819aa0` |
+| MLX LM | `0.31.2`, source revision `dcbf6e33…814a7` |
+| PrismML llama.cpp | revision `38c66ad…cec5` |
 
-CourseMapper compiles a full course (syllabus → lesson plans, slide decks,
-rubrics, quizzes, assignments, study guides) from an LLM. Every paid compile on
-`gpt-5.4-mini` costs ~$0.07 and recurs forever. **Scion's promise is the same
-course at $0 — offline, private, unlimited regeneration** — and it improves
-with every verified example it banks, while the paid price never moves.
+Mutable model aliases are never accepted in a training or release receipt.
 
-## The honest quality band (measured, not claimed)
+## Quick start
 
-Everything below was decided by frozen instruments — deterministic gates, a
-blind cross-family solver, and pooled multi-seat judge panels. See
-`docs/BAKEOFF.md` and `docs/MODEL_CARD.md` for the full record.
-
-| Where | Scion (untrained harness) | gpt-5.4-mini |
-| --- | --- | --- |
-| Structural grade | **98–99/A** | 99/A |
-| Study guides (judge) | **6.0–6.8 — WINS** | 5.0–5.3 |
-| Lesson plans (judge) | 5.7–6.2 — **parity** | 5.33 |
-| Quiz items (judge) | **3.6–4.7 — LOSES** | 6.0–6.3 |
-| **Pooled compiler-seat mean** | **~5.2 (best draw 5.83)** | **6.08** |
-| Cost | **$0.00** | $0.07/compile |
-
-**The whole gap is quiz items.** Scion ties or beats mini everywhere else. The
-17-round harness campaign (grammar decoding, per-lesson chunking, self-verify,
-polish) took the seat from **3.33 → 5.83** but hit a ceiling — the last ~0.9
-points live in the weights, not the scaffolding.
-
-## The plan to beat mini
-
-Train Scion to write quiz items as well as mini writes them, using a signal
-that exists **by construction**: on the identical prompt, mini's quiz item
-judges higher than Scion's, so `(mini item = chosen, Scion item = rejected)` is
-a preference pair with no labeling needed. **841 such atom pairs are already
-built and shipped in `data/`** (353 quiz-item pairs — the direct signal — plus
-488 key-term pairs). ORPO-training on "prefer mini-quality over your own draft"
-moves Scion's output distribution toward mini's on exactly the weak artifact.
-Preference, not imitation — the rule that survived two SFT collapses.
-
-Full step-by-step in **`PLAN.md`**. Measured outcomes (incl. the honest Round-1 result — it did NOT beat mini, it over-narrowed and broke structural output) are logged in **`RESULTS.md`**; the round-1 adapter ships in `adapters-round1/` as a reference.
-
----
-
-## Quick start (Apple Silicon Mac)
+Training is designed for an Apple Silicon Mac with 64 GB unified memory and roughly 80 GB of free
+disk space. Serving needs substantially less memory. Install Python 3.11 or 3.12, `uv`, CMake, and
+the Xcode command-line tools.
 
 ```bash
-# 1. Environment (Python 3.13, MLX — Apple Silicon only)
-python3.13 -m venv .venv
-./.venv/bin/pip install -r requirements.txt
+uv venv --python 3.12
+source .venv/bin/activate
+uv pip install -e '.[train,convert,dev]'
 
-# 2. Train (memory-safe default: 841 atom pairs, batch 1, rank 8, grad-ckpt)
-bash train.sh
-#    → checkpoints land in adapters-scion/
-#    On a big box (48 GB+): DATASET=full BATCH=2 RANK=16 bash train.sh
-
-# 3. Serve the trained adapter + verify it still emits valid JSON
-G4_ADAPTERS=adapters-scion ./.venv/bin/python runtime/serve_scion.py
-#    (JSONL stdin protocol; or wire the OpenAI shim — see runtime/)
-
-# 4. Measure vs mini — see gauntlet/README.md (runs in the CourseMapper app)
+scion prepare
+scion train
+scion runtime build
+scion convert
 ```
 
-**Memory note:** training OOM'd on a 32 GB M-series with batch-size 2 + full
-whole-lesson pairs. The default `train.sh` config (atom pairs, batch 1, rank 8,
-gradient checkpointing, 1024-token cap) fits ~24–32 GB. Scale up on more.
+Preparation verifies the exact unpacked Bonsai revision before producing a local MLX 4-bit QLoRA
+base. Training writes an MLX adapter plus immutable run receipts. Conversion creates
+`artifacts/scion-bonsai-27b.gguf` and rejects it if it reaches 1 GB.
 
-## Repo layout
+Serve the adapter:
 
-```
-data/          the preference corpus (the expensive artifact — $0.084 to build)
-  preference-pairs-atoms.jsonl   841 short mc-item + key-term pairs (train these)
-  preference-pairs-full.jsonl    974 pairs incl. whole-lesson JSON (big machines)
-  app-flywheel.jsonl             pairs banked live by the app's own generations
-runtime/       serve_scion.py (grammar-constrained MLX server) + the OpenAI shim
-contracts/     kernelSchemas.mjs — the grammar contract the server enforces
-train.sh       ORPO training entry point (memory-safe)
-docs/          MODEL_CARD, BAKEOFF (measured results), ROADMAP
-gauntlet/      how to measure trained-Scion vs mini
+```bash
+scion serve \
+  --adapter artifacts/scion-bonsai-27b.gguf \
+  --llama-server .cache/PrismML-llama.cpp/build/bin/llama-server
 ```
 
-## Relationship to CourseMapper
+Then open CourseMapper, choose the local Scion provider, and connect. No API key or CourseMapper
+source change is required. See [CourseMapper integration](docs/COURSEMAPPER.md).
 
-Scion is consumed by the CourseMapper app as its "Local" provider (Provider:
-Local · API key: Free · Model: Scion-1). The app talks to `runtime/`'s
-OpenAI-compatible server. Corpus-building and the vs-mini gauntlet run inside
-the CourseMapper repo (they need the app's compiler + judge); this package
-carries the pre-built corpus so you can train standalone, then drop the adapter
-back into CourseMapper via `G4_ADAPTERS`.
+## Dataset
 
-## Provenance & license
+The checked-in corpus contains 711 training, 297 validation, and 457 test examples. Course groups,
+not individual rows, define the splits. Held-out fixtures are sourced only from the test groups.
+Every response is admitted by the same structural education contracts used in evaluation. See
+[the dataset card](DATASET_CARD.md).
 
-Gemma 4 E2B weights: Apache-2.0 (Google), untouched — Scion is a LoRA adapter
-on top, so the base model is never modified and rollback is deleting the
-adapter. The preference corpus is machine-built (mini authored the "chosen"
-side); every claim here is SIMULATED-verified pending a two-human read, per the
-lab constitution.
+To rebuild it from immutable sibling checkouts:
+
+```bash
+git show 7f97e9b7f995bb7bf74eedd0c07fa8ca291f1d06:data/preference-pairs-full.jsonl \
+  > /tmp/scion-preferences.jsonl
+
+scion dataset \
+  --legacy-jsonl /tmp/scion-preferences.jsonl \
+  --approved-jsonl ../CourseMapper/evaluation/scion-adapters/evidence/codex-approved-preferences-v0.16.42.jsonl \
+  --source-capture-dir ../CourseMapper/evaluation/scion-source-capture-evidence \
+  --source-capture-dir ../CourseMapper/evaluation/scion-source-capture-expansion-evidence
+```
+
+## Promotion gates
+
+A trained checkpoint is explicitly `unpromoted` until all of these pass:
+
+1. The GGUF adapter is valid and below 1 GB.
+2. Base and adapter run the same held-out set of at least 20 fixtures.
+3. Adapter schema compliance is at least 90% and does not regress.
+4. Structural quality and reference-content F1 do not regress from the base.
+5. The real CourseMapper `/v1/models` and `/v1/chat/completions` contract passes.
+
+Run `scion evaluate` once against the base and once against the adapter, `scion compare`, then
+`scion smoke`. Only `scion release` can write a promoted manifest. This prevents an unevaluated
+checkpoint from being described as production-ready.
+
+## Development
+
+```bash
+ruff check .
+pytest
+```
+
+Scion is Apache-2.0 licensed. Bonsai and its runtime remain separate third-party components; see
+[third-party notices](THIRD_PARTY_NOTICES.md) and [the model card](MODEL_CARD.md).

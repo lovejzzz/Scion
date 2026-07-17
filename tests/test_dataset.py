@@ -1,0 +1,27 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+
+
+def test_manifest_has_disjoint_course_groups_and_reproducible_files() -> None:
+    manifest = json.loads((ROOT / "data" / "manifest.json").read_text(encoding="utf-8"))
+    groups = {name: set(values) for name, values in manifest["courseGroups"].items()}
+    assert not groups["train"] & groups["valid"]
+    assert not groups["train"] & groups["test"]
+    assert not groups["valid"] & groups["test"]
+    assert manifest["counts"]["train"]["total"] == 711
+    for relative, expected in manifest["files"].items():
+        path = ROOT / relative
+        assert path.stat().st_size == expected["bytes"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == expected["sha256"]
+
+
+def test_published_provenance_has_no_local_absolute_paths() -> None:
+    for path in [ROOT / "data" / "manifest.json", ROOT / "eval" / "fixtures.jsonl"]:
+        text = path.read_text(encoding="utf-8")
+        assert "/Users/" not in text
+        assert "CodexWorkSpace" not in text

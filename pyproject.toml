@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scion-edu"
+version = "2.0.0"
+description = "A CourseMapper education adapter and serving stack for PrismML Bonsai 27B"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+authors = [{ name = "Scion contributors" }]
+dependencies = ["huggingface-hub==1.5.0"]
+
+[project.optional-dependencies]
+train = ["mlx-lm[train]==0.31.2", "numpy==2.4.2", "safetensors==0.7.0"]
+convert = ["mlx-lm==0.31.2", "numpy==2.4.2", "safetensors==0.7.0", "torch==2.10.0"]
+dev = ["pytest==9.0.2", "ruff==0.15.6"]
+
+[project.scripts]
+scion = "scion.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["scion*"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
