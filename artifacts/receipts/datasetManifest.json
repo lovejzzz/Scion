@@ -1,0 +1,181 @@
+{
+  "base": {
+    "exactRevisionRequired": true,
+    "modelId": "prism-ml/Bonsai-27B-unpacked",
+    "revision": "d619b27283ac02b4199ced97a89419529dc0bfac"
+  },
+  "counts": {
+    "test": {
+      "byDomain": {
+        "computer-science": 30,
+        "geology": 31,
+        "music-theory": 36,
+        "nursing": 108,
+        "statistics": 99,
+        "user-experience-design": 27,
+        "world-literature": 126
+      },
+      "byKind": {
+        "key-term": 166,
+        "lesson": 74,
+        "mc-item": 195,
+        "source-bundle": 22
+      },
+      "total": 457
+    },
+    "train": {
+      "byDomain": {
+        "astronomy": 108,
+        "computer-science": 126,
+        "economics": 117,
+        "geology": 16,
+        "language-learning": 108,
+        "music-theory": 84,
+        "psychology": 135,
+        "user-experience-design": 17
+      },
+      "byKind": {
+        "key-term": 245,
+        "lesson": 142,
+        "mc-item": 312,
+        "source-bundle": 12
+      },
+      "total": 711
+    },
+    "valid": {
+      "byDomain": {
+        "computer-science": 17,
+        "geology": 127,
+        "music-theory": 19,
+        "nutrition": 117,
+        "user-experience-design": 17
+      },
+      "byKind": {
+        "key-term": 105,
+        "lesson": 50,
+        "mc-item": 130,
+        "source-bundle": 12
+      },
+      "total": 297
+    }
+  },
+  "courseGroups": {
+    "test": [
+      "earth-materials-history-lab",
+      "nursing-fundamentals",
+      "python-program-architecture-studio",
+      "stats-intro",
+      "tonal-analysis-integration-studio",
+      "ux-evidence-to-prototype-capstone",
+      "world-lit"
+    ],
+    "train": [
+      "astro-101",
+      "cs-python",
+      "econ-intro",
+      "harmony-form-analysis",
+      "igneous-volcanic-processes",
+      "mandarin",
+      "music-theory",
+      "psych-101",
+      "python-control-flow-workshop",
+      "ux-prototyping-accessibility-lab"
+    ],
+    "valid": [
+      "geology",
+      "music-notation-ear-training",
+      "nutrition-101",
+      "python-data-structures-lab",
+      "tectonics-seismology-field-lab",
+      "ux-research-synthesis-studio"
+    ]
+  },
+  "dataset": "scion-coursemapping-education-v2",
+  "files": {
+    "data/metadata/test.jsonl": {
+      "bytes": 249951,
+      "sha256": "951fe17fb0a2acbca322ea8eb2414696b14ddac1831b159b11a75e3864789c3f"
+    },
+    "data/metadata/train.jsonl": {
+      "bytes": 346553,
+      "sha256": "5dec8f3694f53f8703ffed936117915ad9c052ebd789a52e12ff4c00bb0aee2c"
+    },
+    "data/metadata/valid.jsonl": {
+      "bytes": 156033,
+      "sha256": "09096b8aecf4b72864ce6ce325d9765ed3c07fbbf11f1ad930fc25f29fec3db9"
+    },
+    "data/test.jsonl": {
+      "bytes": 1048971,
+      "sha256": "7e56cd892a5a1b3b49f94f48d4ad50726fb8355cd42d412695d639ee96c41ea1"
+    },
+    "data/train.jsonl": {
+      "bytes": 1656288,
+      "sha256": "117d9912f5d355cf18c12477c20add793e7a8479c8eeec6574a8f74285d1571c"
+    },
+    "data/valid.jsonl": {
+      "bytes": 662246,
+      "sha256": "d8f8ebecfa77ea4f0de736189bdddb4afc6e0feb55c0b1c88baacf5339284bb7"
+    },
+    "eval/fixtures.jsonl": {
+      "bytes": 161930,
+      "sha256": "de4424215d845bc2440fe60bd590bd24e368496a3338625deac42222185e6921"
+    }
+  },
+  "limitations": [
+    "Teacher-chosen examples are machine-authored and are not classroom outcome evidence.",
+    "Stable Codex preference review is not a substitute for independent instructor review.",
+    "The source-grounded subset covers computer science, geology, music theory, and UX design."
+  ],
+  "purpose": "CourseMapper lesson-kernel, assessment, and source-grounding adapter training",
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "path": "data/preference-pairs-full.jsonl",
+      "repository": "lovejzzz/Scion",
+      "revision": "7f97e9b7f995bb7bf74eedd0c07fa8ca291f1d06",
+      "sha256": "c42e3362d55922f0f629ed7b79f70239ad7695cf9ea69a27d907ffbbd059d6d0",
+      "use": "teacher-chosen full kernels normalized to the current CourseMapper contract"
+    },
+    {
+      "path": "evaluation/scion-adapters/evidence/codex-approved-preferences-v0.16.42.jsonl",
+      "repository": "lovejzzz/CourseMapper",
+      "revision": "4f5bed3833f72494917e67c1a0c878af8c2b9a70",
+      "sha256": "61e2bc936c3f067f2675e73d85e43830a08fb04bdf14ecb72781199a9f1b3a4c",
+      "use": "stable order-swapped preference winners"
+    },
+    {
+      "paths": [
+        "evaluation/scion-source-capture-evidence/harmony-form-analysis-reference.json",
+        "evaluation/scion-source-capture-evidence/igneous-volcanic-processes-reference.json",
+        "evaluation/scion-source-capture-evidence/music-notation-ear-training-reference.json",
+        "evaluation/scion-source-capture-evidence/python-control-flow-workshop-reference.json",
+        "evaluation/scion-source-capture-evidence/python-data-structures-lab-reference.json",
+        "evaluation/scion-source-capture-evidence/tectonics-seismology-field-lab-reference.json",
+        "evaluation/scion-source-capture-evidence/ux-prototyping-accessibility-lab-reference.json",
+        "evaluation/scion-source-capture-evidence/ux-research-synthesis-studio-reference.json",
+        "evaluation/scion-source-capture-expansion-evidence/earth-materials-history-lab-reference.json",
+        "evaluation/scion-source-capture-expansion-evidence/python-program-architecture-studio-reference.json",
+        "evaluation/scion-source-capture-expansion-evidence/tonal-analysis-integration-studio-reference.json",
+        "evaluation/scion-source-capture-expansion-evidence/ux-evidence-to-prototype-capstone-reference.json"
+      ],
+      "repository": "lovejzzz/CourseMapper",
+      "revision": "4f5bed3833f72494917e67c1a0c878af8c2b9a70",
+      "sha256": {
+        "earth-materials-history-lab-reference.json": "848866826f59bda860d6c7865170665314504d9ccd79cf6604221358523ded8e",
+        "harmony-form-analysis-reference.json": "70822a8ce78cd3097d1b8be5b2b579f0925e1cd442dda301716b68e9d53056bd",
+        "igneous-volcanic-processes-reference.json": "07e65241d9291e7e3cafe499315b037b8ca1601107de22fec0bb7a4598d8f78c",
+        "music-notation-ear-training-reference.json": "61909bbf0b68d25a3f55fa6d58c00bf6fe5ef594a5f3c65e3c6bd02e91a458cb",
+        "python-control-flow-workshop-reference.json": "2df58c1ed5a8ca53de2076ee15979b3b04dbbc79b1b403f46484f89a9e583068",
+        "python-data-structures-lab-reference.json": "d3b1e83609dc755ed1864076013573b492b9a9400fe541a627f25f2901e7085a",
+        "python-program-architecture-studio-reference.json": "254680cf489d62834243cef287fb5431872bbc47af85883e181a1ba03227a306",
+        "tectonics-seismology-field-lab-reference.json": "5408ea68e4ef2e0064b42ec4b9c45bc6516925000563e6ff6942442c8e5c4263",
+        "tonal-analysis-integration-studio-reference.json": "9152156a21a74fcc09a3123c046642d68202b4d53566cf591648003bdd1a9cce",
+        "ux-evidence-to-prototype-capstone-reference.json": "301336f3053533b88b9ff5224f42535fbf6016b5a1ed15f54ac11426b17f0bc8",
+        "ux-prototyping-accessibility-lab-reference.json": "eaa3b086962e97791bdd34c61210fd2329344aab2f7a7b6b384a08e494cc1489",
+        "ux-research-synthesis-studio-reference.json": "ca93fd43d0307dd001105c5b9cba94522addad7f7a939a73c5458a9f477c6fca"
+      },
+      "use": "source-grounded, compiler-admitted reference atoms"
+    }
+  ],
+  "splitPolicy": "course-group-disjoint"
+}

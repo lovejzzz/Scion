@@ -26,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     dataset.add_argument("--source-capture-dir", type=Path, action="append", required=True)
     dataset.add_argument("--output", type=Path, default=Path("data"))
     dataset.add_argument("--eval-output", type=Path, default=Path("eval/fixtures.jsonl"))
+    dataset.add_argument("--heldout-output", type=Path, default=Path("eval/heldout-fixtures.jsonl"))
 
     prepare = commands.add_parser("prepare", help="prepare an exact 4-bit MLX QLoRA base")
     prepare.add_argument("--output", type=Path, default=Path(".cache/bonsai-27b-mlx-4bit"))
@@ -70,11 +71,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     evaluate = commands.add_parser("evaluate", help="run held-out CourseMapper fixtures against an endpoint")
     evaluate.add_argument("--endpoint", default="http://127.0.0.1:8799")
-    evaluate.add_argument("--fixtures", type=Path, default=Path("eval/fixtures.jsonl"))
+    evaluate.add_argument("--fixtures", type=Path, default=Path("eval/heldout-fixtures.jsonl"))
     evaluate.add_argument("--output", type=Path, required=True)
     evaluate.add_argument("--model", default="scion-1")
     evaluate.add_argument("--limit", type=int)
     evaluate.add_argument("--max-tokens", type=int, default=4096)
+    evaluate.add_argument("--unguided", action="store_true")
 
     compare = commands.add_parser("compare", help="apply base-versus-adapter promotion thresholds")
     compare.add_argument("--base", type=Path, required=True)
@@ -89,6 +91,9 @@ def build_parser() -> argparse.ArgumentParser:
     release = commands.add_parser("release", help="promote a verified adapter and write its release manifest")
     release.add_argument("--adapter", type=Path, default=Path("artifacts/scion-bonsai-27b.gguf"))
     release.add_argument("--dataset-manifest", type=Path, default=Path("data/manifest.json"))
+    release.add_argument(
+        "--evaluation-manifest", type=Path, default=Path("eval/heldout-manifest.json")
+    )
     release.add_argument("--training-result", type=Path, default=Path("runs/bonsai-27b/training-result.json"))
     release.add_argument(
         "--conversion-receipt", type=Path, default=Path("runs/bonsai-27b/conversion/conversion-receipt.json")
@@ -116,6 +121,7 @@ def main(argv: list[str] | None = None) -> None:
                 source_capture_paths=paths,
                 output_dir=args.output,
                 eval_output=args.eval_output,
+                heldout_output=args.heldout_output,
             )
         )
     elif args.command == "prepare":
@@ -187,6 +193,7 @@ def main(argv: list[str] | None = None) -> None:
                 model=args.model,
                 limit=args.limit,
                 max_tokens=args.max_tokens,
+                guided=not args.unguided,
             )
         )
     elif args.command == "compare":
@@ -204,6 +211,7 @@ def main(argv: list[str] | None = None) -> None:
             build_release_manifest(
                 adapter=args.adapter,
                 dataset_manifest=args.dataset_manifest,
+                evaluation_manifest=args.evaluation_manifest,
                 training_result=args.training_result,
                 conversion_receipt=args.conversion_receipt,
                 comparison=args.comparison,

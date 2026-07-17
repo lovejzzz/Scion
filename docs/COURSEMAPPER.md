@@ -31,5 +31,6 @@ Before promoting an adapter, run:
 scion smoke --output runs/bonsai-27b/coursemapper-smoke.json
 ```
 
-The smoke gate calls both endpoints with model `scion-1`, requests JSON output, and admits the
-returned assessment item through Scion's CourseMapper contract validator.
+The smoke gate checks browser CORS preflight, calls model discovery, then uses CourseMapper's
+schema-constrained SSE request shape with model `scion-1`. It requires a complete `[DONE]` stream
+and admits the returned assessment item through Scion's CourseMapper contract validator.

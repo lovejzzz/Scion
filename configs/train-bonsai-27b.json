@@ -24,7 +24,7 @@
   "save_every": 50,
   "test": true,
   "test_batches": 48,
-  "max_seq_length": 4096,
+  "max_seq_length": 1600,
   "grad_checkpoint": true,
   "clear_cache_threshold": "8GB",
   "mask_prompt": true,

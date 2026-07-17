@@ -622,6 +622,47 @@ def _write_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
     _atomic_write(path, content)
 
 
+def heldout_fixtures(examples: Iterable[Example], *, per_kind: int = 12) -> list[dict[str, Any]]:
+    """Select a deterministic, kind-balanced test-only evaluation set."""
+    buckets: dict[str, dict[str, list[Example]]] = defaultdict(lambda: defaultdict(list))
+    for example in sorted(examples, key=lambda item: item.identity):
+        if example.split != "test":
+            raise ValueError("held-out fixtures may only be selected from the test split")
+        buckets[example.kind][example.domain].append(example)
+
+    expected_kinds = {"lesson", "mc-item", "key-term", "source-bundle"}
+    if set(buckets) != expected_kinds:
+        raise ValueError(f"held-out fixture kinds do not match the CourseMapper contracts: {set(buckets)}")
+    selected: list[Example] = []
+    for kind in sorted(expected_kinds):
+        domain_buckets = buckets[kind]
+        domains = sorted(domain_buckets)
+        chosen: list[Example] = []
+        cursor = 0
+        while len(chosen) < per_kind and any(domain_buckets.values()):
+            domain = domains[cursor % len(domains)]
+            if domain_buckets[domain]:
+                chosen.append(domain_buckets[domain].pop(0))
+            cursor += 1
+        if len(chosen) != per_kind:
+            raise ValueError(f"test split has only {len(chosen)} usable {kind} fixtures")
+        selected.extend(chosen)
+
+    return [
+        {
+            "id": f"heldout-{example.identity[:16]}",
+            "split": example.split,
+            "kind": example.kind,
+            "domain": example.domain,
+            "courseGroup": example.course_group,
+            "messages": list(example.messages[:-1]),
+            "expected": json.loads(example.messages[-1]["content"]),
+            "provenance": example.provenance,
+        }
+        for example in selected
+    ]
+
+
 def build_dataset(
     *,
     legacy_jsonl: Path,
@@ -629,9 +670,10 @@ def build_dataset(
     source_capture_paths: Iterable[Path],
     output_dir: Path,
     eval_output: Path,
+    heldout_output: Path,
 ) -> dict[str, Any]:
     source_paths = tuple(sorted(source_capture_paths))
-    source_examples, fixtures = source_capture_examples(source_paths)
+    source_examples, source_fixtures = source_capture_examples(source_paths)
     examples = legacy_examples(legacy_jsonl) + approved_examples(approved_jsonl) + source_examples
     deduplicated: dict[str, Example] = {}
     for example in examples:
@@ -655,7 +697,9 @@ def build_dataset(
         _write_jsonl(
             metadata_dir / f"{split}.jsonl", (example.metadata_row() for example in split_rows[split])
         )
-    _write_jsonl(eval_output, sorted(fixtures, key=lambda fixture: fixture["id"]))
+    _write_jsonl(eval_output, sorted(source_fixtures, key=lambda fixture: fixture["id"]))
+    heldout = heldout_fixtures(split_rows["test"])
+    _write_jsonl(heldout_output, sorted(heldout, key=lambda fixture: fixture["id"]))
 
     groups_by_split = {
         split: sorted({example.course_group for example in split_rows[split]})
@@ -728,6 +772,28 @@ def build_dataset(
         output_dir / "manifest.json",
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
     )
+    heldout_manifest = {
+        "schemaVersion": 1,
+        "purpose": "test-only base-versus-adapter CourseMapper promotion evaluation",
+        "selection": "12 deterministic domain-round-robin examples per response kind",
+        "datasetManifest": {
+            "path": (output_dir / "manifest.json").relative_to(output_dir.parent).as_posix(),
+            "sha256": sha256_file(output_dir / "manifest.json"),
+        },
+        "fixtures": {
+            "path": heldout_output.relative_to(output_dir.parent).as_posix(),
+            "bytes": heldout_output.stat().st_size,
+            "sha256": sha256_file(heldout_output),
+            "count": len(heldout),
+            "splits": dict(sorted(Counter(item["split"] for item in heldout).items())),
+            "byKind": dict(sorted(Counter(item["kind"] for item in heldout).items())),
+            "byDomain": dict(sorted(Counter(item["domain"] for item in heldout).items())),
+        },
+    }
+    _atomic_write(
+        heldout_output.with_name("heldout-manifest.json"),
+        json.dumps(heldout_manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+    )
     return manifest
 
 
@@ -738,6 +804,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-capture-dir", type=Path, action="append", required=True)
     parser.add_argument("--output", type=Path, default=Path("data"))
     parser.add_argument("--eval-output", type=Path, default=Path("eval/fixtures.jsonl"))
+    parser.add_argument("--heldout-output", type=Path, default=Path("eval/heldout-fixtures.jsonl"))
     return parser.parse_args(argv)
 
 
@@ -752,6 +819,7 @@ def main(argv: list[str] | None = None) -> None:
         source_capture_paths=paths,
         output_dir=args.output,
         eval_output=args.eval_output,
+        heldout_output=args.heldout_output,
     )
     print(json.dumps({"status": "pass", "counts": manifest["counts"]}, indent=2, sort_keys=True))
 

@@ -51,6 +51,7 @@ def build_release_manifest(
     *,
     adapter: Path,
     dataset_manifest: Path,
+    evaluation_manifest: Path,
     training_result: Path,
     conversion_receipt: Path,
     comparison: Path,
@@ -62,6 +63,7 @@ def build_release_manifest(
     adapter_record["path"] = _portable(adapter, root)
     records = {
         "dataset": _load(dataset_manifest),
+        "evaluationFixtures": _load(evaluation_manifest),
         "training": _load(training_result),
         "conversion": _load(conversion_receipt),
         "comparison": _load(comparison),
@@ -73,6 +75,10 @@ def build_release_manifest(
         raise RuntimeError("conversion receipt is not eligible for promotion")
     if records["comparison"].get("status") != "pass" or records["smoke"].get("status") != "pass":
         raise RuntimeError("evaluation and CourseMapper smoke gates must pass before release")
+    fixture_record = records["evaluationFixtures"].get("fixtures") or {}
+    comparison_fixture_record = ((records["comparison"].get("adapter") or {}).get("fixtureSet") or {})
+    if fixture_record.get("sha256") != comparison_fixture_record.get("sourceSha256"):
+        raise RuntimeError("evaluation report is not bound to the published held-out fixture manifest")
     if records["conversion"]["artifact"]["sha256"] != adapter_record["sha256"]:
         raise RuntimeError("adapter identity does not match the conversion receipt")
     if int(adapter_record["bytes"]) >= MAX_SCION_ARTIFACT_BYTES:
@@ -80,6 +86,7 @@ def build_release_manifest(
 
     receipt_paths = {
         "datasetManifest": dataset_manifest,
+        "evaluationFixtureManifest": evaluation_manifest,
         "trainingResult": training_result,
         "conversionReceipt": conversion_receipt,
         "evaluationComparison": comparison,
@@ -94,6 +101,16 @@ def build_release_manifest(
             json.dumps(_portable_values(_load(source), root), indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        published_receipts[name] = destination
+    for name, report in (
+        ("evaluationBaseResults", records["comparison"].get("base") or {}),
+        ("evaluationAdapterResults", records["comparison"].get("adapter") or {}),
+    ):
+        source = Path(str(report.get("results") or ""))
+        if not source.is_file():
+            raise RuntimeError(f"evaluation result rows are missing: {source}")
+        destination = receipt_output / f"{name}.jsonl"
+        destination.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
         published_receipts[name] = destination
     manifest = {
         "schemaVersion": 1,

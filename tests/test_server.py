@@ -18,6 +18,7 @@ def test_server_command_matches_coursemapper_contract(tmp_path: Path) -> None:
     assert command[command.index("--reasoning") + 1] == "off"
     assert command[command.index("--reasoning-budget") + 1] == "0"
     assert command[command.index("--reasoning-format") + 1] == "deepseek"
+    assert command[command.index("--cache-ram") + 1] == "0"
     assert command[-2:] == ["--lora", str(tmp_path / "scion.gguf")]
 
 

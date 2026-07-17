@@ -6,6 +6,7 @@ import hashlib
 import importlib.metadata
 import json
 import platform
+import re
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -24,6 +25,14 @@ from .constants import (
     TRAIN_BASE_REVISION,
 )
 from .dataset import sha256_file
+from .mlx_lora import SEQUENCE_BUCKETS
+
+_NUMBER = r"[0-9]+(?:\.[0-9]+)?"
+_VAL_METRIC = re.compile(rf"Iter (\d+): Val loss ({_NUMBER})")
+_TRAIN_METRIC = re.compile(
+    rf"Iter (\d+): Train loss ({_NUMBER}).*Trained Tokens (\d+), Peak mem ({_NUMBER}) GB"
+)
+_TEST_METRIC = re.compile(rf"Test loss ({_NUMBER}), Test ppl ({_NUMBER})")
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -90,7 +99,8 @@ def prepare_training_base(
     command = [
         python,
         "-m",
-        "mlx_lm.convert",
+        "mlx_lm",
+        "convert",
         "--hf-path",
         f"{TRAIN_BASE_ID}@{TRAIN_BASE_REVISION}",
         "--mlx-path",
@@ -107,7 +117,7 @@ def prepare_training_base(
     # large conversion starts. Passing the local path also prevents a mutable
     # Hub lookup inside mlx_lm.convert.
     snapshot = resolve_training_snapshot(cache_dir, local_files_only=local_files_only)
-    command[4] = str(snapshot)
+    command[5] = str(snapshot)
     output.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(command, check=True)
     return verify_quantized_training_base(output)
@@ -120,6 +130,30 @@ def _package_version(name: str) -> str | None:
         return None
 
 
+def parse_training_metrics(log_path: Path) -> dict[str, Any]:
+    """Extract the final metrics and validation curve emitted by pinned MLX LM."""
+    text = log_path.read_text(encoding="utf-8")
+    validation = [
+        {"iteration": int(match.group(1)), "loss": float(match.group(2))}
+        for match in _VAL_METRIC.finditer(text)
+    ]
+    training = list(_TRAIN_METRIC.finditer(text))
+    test = _TEST_METRIC.search(text)
+    if not validation or not training or test is None:
+        raise RuntimeError(f"training log is missing required final metrics: {log_path}")
+    final = training[-1]
+    return {
+        "validationLoss": validation,
+        "finalTrain": {
+            "iteration": int(final.group(1)),
+            "loss": float(final.group(2)),
+            "trainedTokens": int(final.group(3)),
+            "reportedPeakMemoryGb": float(final.group(4)),
+        },
+        "test": {"loss": float(test.group(1)), "perplexity": float(test.group(2))},
+    }
+
+
 def build_training_plan(
     *,
     config_path: Path,
@@ -130,6 +164,11 @@ def build_training_plan(
     iters: int | None = None,
 ) -> tuple[dict[str, Any], Path]:
     config = _json(config_path)
+    if config.get("max_seq_length") != SEQUENCE_BUCKETS[-1]:
+        raise RuntimeError(
+            f"max_seq_length must be {SEQUENCE_BUCKETS[-1]} so Scion's bounded sequence buckets are exact"
+        )
+    config["scion_sequence_buckets"] = list(SEQUENCE_BUCKETS)
     config["model"] = str(model_path.resolve())
     config["data"] = str(data_dir.resolve())
     config["adapter_path"] = str(output_dir.resolve())
@@ -202,7 +241,7 @@ def train(
         run_dir=run_dir,
         iters=iters,
     )
-    command = [python, "-m", "mlx_lm.lora", "--config", str(resolved)]
+    command = [python, "-m", "scion.mlx_lora", "--config", str(resolved)]
     if dry_run:
         return {"status": "dry-run", "plan": plan, "command": command}
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -237,6 +276,7 @@ def train(
         ],
         "artifactBytes": artifact_bytes,
         "artifactCapBytes": MAX_SCION_ARTIFACT_BYTES,
+        "metrics": parse_training_metrics(log_path),
         "promotion": "requires-base-vs-adapter held-out evaluation and CourseMapper smoke test",
     }
     (run_dir / "training-result.json").write_text(

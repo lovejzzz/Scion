@@ -1,0 +1,90 @@
+{
+  "adapter": {
+    "contractDirectiveSha256": "eb1a865affd3d4e3d85c4a5869f2a814e07e40b42b53afe7343397765276aa25",
+    "contractPassCount": 45,
+    "contractPassRate": 0.9375,
+    "count": 48,
+    "elapsedSeconds": 1154.252,
+    "endpoint": "http://127.0.0.1:8801",
+    "fixtureSet": {
+      "byDomain": {
+        "computer-science": 7,
+        "geology": 7,
+        "music-theory": 7,
+        "nursing": 8,
+        "statistics": 8,
+        "user-experience-design": 5,
+        "world-literature": 6
+      },
+      "byKind": {
+        "key-term": 12,
+        "lesson": 12,
+        "mc-item": 12,
+        "source-bundle": 12
+      },
+      "selectedIdsSha256": "64dfc191bef72fd9f9fea3f2b629bc20f550e9f75d7649f8e1ce3b355dc13d0b",
+      "sourceSha256": "676d63ede448d27be92674f76491ca4fb3843d4277ec38a6e4586a20704d9393",
+      "splits": {
+        "test": 48
+      }
+    },
+    "fixtures": "eval/heldout-fixtures.jsonl",
+    "meanQualityScore": 0.9704861111111112,
+    "meanReferenceF1": 0.35062780608881833,
+    "model": "scion-1",
+    "p95LatencySeconds": 54.25,
+    "responseMode": "coursemapper-json-schema",
+    "results": "runs/bonsai-27b/eval-adapter/results.jsonl",
+    "schemaVersion": 1
+  },
+  "base": {
+    "contractDirectiveSha256": "eb1a865affd3d4e3d85c4a5869f2a814e07e40b42b53afe7343397765276aa25",
+    "contractPassCount": 45,
+    "contractPassRate": 0.9375,
+    "count": 48,
+    "elapsedSeconds": 1119.478,
+    "endpoint": "http://127.0.0.1:8800",
+    "fixtureSet": {
+      "byDomain": {
+        "computer-science": 7,
+        "geology": 7,
+        "music-theory": 7,
+        "nursing": 8,
+        "statistics": 8,
+        "user-experience-design": 5,
+        "world-literature": 6
+      },
+      "byKind": {
+        "key-term": 12,
+        "lesson": 12,
+        "mc-item": 12,
+        "source-bundle": 12
+      },
+      "selectedIdsSha256": "64dfc191bef72fd9f9fea3f2b629bc20f550e9f75d7649f8e1ce3b355dc13d0b",
+      "sourceSha256": "676d63ede448d27be92674f76491ca4fb3843d4277ec38a6e4586a20704d9393",
+      "splits": {
+        "test": 48
+      }
+    },
+    "fixtures": "eval/heldout-fixtures.jsonl",
+    "meanQualityScore": 0.9652777777777778,
+    "meanReferenceF1": 0.3449198651078358,
+    "model": "scion-1",
+    "p95LatencySeconds": 54.022,
+    "responseMode": "coursemapper-json-schema",
+    "results": "runs/bonsai-27b/eval-base/results.jsonl",
+    "schemaVersion": 1
+  },
+  "checks": {
+    "adapterContractNotWorse": true,
+    "adapterContractPassAtLeast90Percent": true,
+    "adapterFixturesTestOnlyAndKindBalanced": true,
+    "adapterQualityNotWorse": true,
+    "adapterReferenceF1NotWorse": true,
+    "sameCourseMapperContractDirective": true,
+    "sameCourseMapperSchemaMode": true,
+    "samePinned48FixtureSet": true
+  },
+  "schemaVersion": 1,
+  "status": "pass"
+}

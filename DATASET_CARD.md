@@ -35,6 +35,8 @@ only chat messages.
 - Exact response duplicates are removed.
 - Entire course groups are assigned to only one split; group intersections are rejected.
 - Held-out evaluation fixtures come from test groups and are never copied into training messages.
+- Promotion evaluation selects 12 deterministic, domain-round-robin examples for each of the four
+  CourseMapper response kinds and binds the set to its own manifest and SHA-256.
 - Local absolute paths are removed from published provenance.
 
 ## Known limitations

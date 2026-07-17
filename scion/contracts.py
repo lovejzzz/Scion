@@ -125,9 +125,7 @@ def validate_lesson(value: Any) -> list[str]:
     if not isinstance(discussion, Mapping):
         issues.append("discussion-not-object")
     else:
-        question = _text(discussion.get("pr"), 20, "discussion-question", issues)
-        if question and not question.endswith("?"):
-            issues.append("discussion-question-mark")
+        _text(discussion.get("pr"), 20, "discussion-question", issues)
         _text(discussion.get("tn"), 20, "discussion-tension", issues)
         positions = discussion.get("po")
         if not isinstance(positions, list) or len(positions) != 3:

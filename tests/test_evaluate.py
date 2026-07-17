@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
-from scion.evaluate import compare_reports, reference_f1
+from scion.evaluate import (
+    COURSEMAPPER_CONTRACT_DIRECTIVE,
+    compare_reports,
+    coursemapper_messages,
+    reference_f1,
+)
 
 
 def test_reference_f1_is_bounded_and_exact_is_one() -> None:
@@ -13,14 +19,27 @@ def test_reference_f1_is_bounded_and_exact_is_one() -> None:
 
 
 def test_comparison_passes_only_non_regressing_adapter(tmp_path: Path) -> None:
+    directive_sha = hashlib.sha256(COURSEMAPPER_CONTRACT_DIRECTIVE.encode()).hexdigest()
+    fixture_set = {
+        "sourceSha256": "a" * 64,
+        "selectedIdsSha256": "b" * 64,
+        "splits": {"test": 48},
+        "byKind": {"key-term": 12, "lesson": 12, "mc-item": 12, "source-bundle": 12},
+    }
     base = {
-        "count": 20,
+        "count": 48,
+        "fixtureSet": fixture_set,
+        "responseMode": "coursemapper-json-schema",
+        "contractDirectiveSha256": directive_sha,
         "contractPassRate": 0.9,
         "meanReferenceF1": 0.5,
         "meanQualityScore": 0.9,
     }
     adapter = {
-        "count": 20,
+        "count": 48,
+        "fixtureSet": fixture_set,
+        "responseMode": "coursemapper-json-schema",
+        "contractDirectiveSha256": directive_sha,
         "contractPassRate": 0.95,
         "meanReferenceF1": 0.51,
         "meanQualityScore": 0.95,
@@ -31,6 +50,13 @@ def test_comparison_passes_only_non_regressing_adapter(tmp_path: Path) -> None:
     adapter_path.write_text(json.dumps(adapter), encoding="utf-8")
     result = compare_reports(base_path, adapter_path, tmp_path / "comparison.json")
     assert result["status"] == "pass"
+
+
+def test_coursemapper_contract_directive_is_bound_to_system_message() -> None:
+    original = [{"role": "system", "content": "Return JSON."}, {"role": "user", "content": "Go"}]
+    bound = coursemapper_messages(original)
+    assert COURSEMAPPER_CONTRACT_DIRECTIVE in bound[0]["content"]
+    assert original[0]["content"] == "Return JSON."
 
 
 def test_comparison_rejects_tiny_or_regressing_run(tmp_path: Path) -> None:

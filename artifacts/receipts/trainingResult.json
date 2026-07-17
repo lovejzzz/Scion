@@ -1,0 +1,72 @@
+{
+  "artifactBytes": 59793863,
+  "artifactCapBytes": 1000000000,
+  "completedAt": "2026-07-17T10:47:52.730417+00:00",
+  "files": [
+    {
+      "bytes": 1529,
+      "path": "adapter_config.json",
+      "sha256": "7faed7aec884ca5f42b14fcd8cc2074e84aea19decbdf2a1f159f2e0c4c18293"
+    },
+    {
+      "bytes": 59792334,
+      "path": "adapters.safetensors",
+      "sha256": "69ce3e0b1616037908cabb9345c8adc2d3c84954ea97482f96ea92646b58bc5c"
+    }
+  ],
+  "metrics": {
+    "finalTrain": {
+      "iteration": 400,
+      "loss": 11.297,
+      "reportedPeakMemoryGb": 92.463,
+      "trainedTokens": 119818
+    },
+    "test": {
+      "loss": 11.262,
+      "perplexity": 77815.093
+    },
+    "validationLoss": [
+      {
+        "iteration": 1,
+        "loss": 15.306
+      },
+      {
+        "iteration": 50,
+        "loss": 15.101
+      },
+      {
+        "iteration": 100,
+        "loss": 15.043
+      },
+      {
+        "iteration": 150,
+        "loss": 14.73
+      },
+      {
+        "iteration": 200,
+        "loss": 14.148
+      },
+      {
+        "iteration": 250,
+        "loss": 13.505
+      },
+      {
+        "iteration": 300,
+        "loss": 12.79
+      },
+      {
+        "iteration": 350,
+        "loss": 12.042
+      },
+      {
+        "iteration": 400,
+        "loss": 11.124
+      }
+    ]
+  },
+  "promotion": "requires-base-vs-adapter held-out evaluation and CourseMapper smoke test",
+  "runId": "78a9e7442cbdaaaf95c43fe4",
+  "schemaVersion": 1,
+  "status": "trained-unpromoted",
+  "trainingPlanSha256": "9033af0335b028b42cf1045e9db51bbb62fab49aed6b0260867e8ffb92527247"
+}

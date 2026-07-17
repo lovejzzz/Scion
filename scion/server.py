@@ -6,6 +6,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+from contextlib import suppress
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download
@@ -97,6 +98,8 @@ def server_command(
         str(context_size),
         "--parallel",
         "1",
+        "--cache-ram",
+        "0",
         "--jinja",
         "--temp",
         "0",
@@ -151,6 +154,7 @@ def serve(
     if dry_run:
         result["status"] = "dry-run"
         return result
-    subprocess.run(command, check=True)
+    with suppress(KeyboardInterrupt):
+        subprocess.run(command, check=True)
     result["status"] = "stopped"
     return result

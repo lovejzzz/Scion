@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -9,13 +10,20 @@ import time
 import urllib.error
 import urllib.request
 from collections import Counter, defaultdict
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from .constants import SCION_MODEL_ID
 from .contracts import quality_score, validate_response
+from .schemas import response_format
 
 _TOKEN = re.compile(r"[a-z0-9]+", re.IGNORECASE)
+COURSEMAPPER_CONTRACT_DIRECTIVE = (
+    "Follow CourseMapper kernel admission rules. Every multiple-choice option must be distinct, "
+    "parallel, and plausible. For every key term, mi must be a plausible misconception, while cx "
+    "must directly correct that misconception in distinct wording; neither may repeat df."
+)
 
 
 def _request_json(url: str, payload: dict[str, Any] | None = None, timeout: int = 300) -> dict[str, Any]:
@@ -50,6 +58,92 @@ def wait_until_ready(endpoint: str, *, timeout: int = 600) -> dict[str, Any]:
     raise RuntimeError(f"model server did not become ready in {timeout}s: {last_error}")
 
 
+def validate_browser_preflight(
+    status: int, headers: Mapping[str, str], *, origin: str
+) -> list[str]:
+    normalized = {key.casefold(): value for key, value in headers.items()}
+    issues = []
+    if not 200 <= status < 300:
+        issues.append(f"cors-status:{status}")
+    if normalized.get("access-control-allow-origin") not in {"*", origin}:
+        issues.append("cors-origin")
+    methods = {item.strip().upper() for item in normalized.get("access-control-allow-methods", "").split(",")}
+    if "POST" not in methods:
+        issues.append("cors-post-method")
+    allowed_headers = normalized.get("access-control-allow-headers", "").casefold()
+    if allowed_headers != "*" and "content-type" not in allowed_headers:
+        issues.append("cors-content-type-header")
+    return issues
+
+
+def browser_preflight(endpoint: str, *, origin: str = "http://localhost:5173") -> dict[str, Any]:
+    request = urllib.request.Request(
+        endpoint.rstrip("/") + "/v1/chat/completions",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+        method="OPTIONS",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            headers = dict(response.headers.items())
+            status = response.status
+    except urllib.error.URLError as error:
+        return {"status": None, "headers": {}, "origin": origin, "issues": [f"cors-request:{error}"]}
+    return {
+        "status": status,
+        "headers": headers,
+        "origin": origin,
+        "issues": validate_browser_preflight(status, headers, origin=origin),
+    }
+
+
+def parse_sse_chat(lines: list[bytes]) -> tuple[str, bool]:
+    chunks: list[str] = []
+    saw_done = False
+    for raw_line in lines:
+        line = raw_line.decode("utf-8").strip()
+        if not line.startswith("data:"):
+            continue
+        data = line.removeprefix("data:").strip()
+        if data == "[DONE]":
+            saw_done = True
+            continue
+        try:
+            event = json.loads(data)
+            content = event["choices"][0]["delta"].get("content")
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as error:
+            raise RuntimeError(f"invalid chat-completions SSE event: {data}") from error
+        if isinstance(content, str):
+            chunks.append(content)
+    return "".join(chunks).strip(), saw_done
+
+
+def stream_chat_completion(endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
+    request = urllib.request.Request(
+        endpoint.rstrip("/") + "/v1/chat/completions",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=600) as response:
+            content_type = response.headers.get("Content-Type", "")
+            content, saw_done = parse_sse_chat(list(response))
+            status = response.status
+    except urllib.error.URLError as error:
+        raise RuntimeError(f"streaming request failed: {error}") from error
+    if "text/event-stream" not in content_type:
+        raise RuntimeError(f"streaming response has unexpected content type: {content_type}")
+    if not saw_done:
+        raise RuntimeError("streaming response ended without [DONE]")
+    if not content:
+        raise RuntimeError("streaming response contained no assistant content")
+    return {"status": status, "contentType": content_type, "sawDone": saw_done, "content": content}
+
+
 def _tokens(value: Any) -> Counter[str]:
     serialized = json.dumps(value, ensure_ascii=False, sort_keys=True)
     return Counter(token.casefold() for token in _TOKEN.findall(serialized) if len(token) > 2)
@@ -74,6 +168,15 @@ def _assistant_content(response: dict[str, Any]) -> str:
     if not isinstance(content, str):
         raise RuntimeError("chat-completions content is not text")
     return content.strip()
+
+
+def coursemapper_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    bound = [dict(message) for message in messages]
+    if not bound or bound[0].get("role") != "system":
+        bound.insert(0, {"role": "system", "content": COURSEMAPPER_CONTRACT_DIRECTIVE})
+    else:
+        bound[0]["content"] = f"{bound[0].get('content', '').rstrip()}\n\n{COURSEMAPPER_CONTRACT_DIRECTIVE}"
+    return bound
 
 
 def _stratified(fixtures: list[dict[str, Any]], limit: int | None) -> list[dict[str, Any]]:
@@ -103,19 +206,30 @@ def evaluate_endpoint(
     model: str = SCION_MODEL_ID,
     limit: int | None = None,
     max_tokens: int = 4096,
+    guided: bool = True,
 ) -> dict[str, Any]:
     fixtures = [json.loads(line) for line in fixtures_path.read_text(encoding="utf-8").splitlines() if line]
     selected = _stratified(fixtures, limit)
+    fixture_bytes = fixtures_path.read_bytes()
+    fixture_set = {
+        "sourceSha256": hashlib.sha256(fixture_bytes).hexdigest(),
+        "selectedIdsSha256": hashlib.sha256(
+            json.dumps([fixture["id"] for fixture in selected], separators=(",", ":")).encode()
+        ).hexdigest(),
+        "splits": dict(sorted(Counter(str(fixture.get("split")) for fixture in selected).items())),
+        "byKind": dict(sorted(Counter(str(fixture["kind"]) for fixture in selected).items())),
+        "byDomain": dict(sorted(Counter(str(fixture["domain"]) for fixture in selected).items())),
+    }
     wait_until_ready(endpoint)
     rows: list[dict[str, Any]] = []
     started = time.monotonic()
     for index, fixture in enumerate(selected, start=1):
         request = {
             "model": model,
-            "messages": fixture["messages"],
+            "messages": coursemapper_messages(fixture["messages"]),
             "temperature": 0,
             "max_tokens": max_tokens,
-            "response_format": {"type": "json_object"},
+            "response_format": response_format(fixture["kind"]) if guided else {"type": "json_object"},
             "stream": False,
         }
         row: dict[str, Any] = {
@@ -145,6 +259,12 @@ def evaluate_endpoint(
         row["latencySeconds"] = round(time.monotonic() - call_started, 3)
         row["position"] = index
         rows.append(row)
+        print(
+            f"[{index}/{len(selected)}] {row['id']} {row['kind']} {row['status']} "
+            f"quality={row['qualityScore']:.3f} f1={row['referenceF1']:.3f} "
+            f"latency={row['latencySeconds']:.3f}s",
+            flush=True,
+        )
 
     output.mkdir(parents=True, exist_ok=True)
     results_path = output / "results.jsonl"
@@ -154,8 +274,11 @@ def evaluate_endpoint(
         "schemaVersion": 1,
         "endpoint": endpoint,
         "model": model,
+        "responseMode": "coursemapper-json-schema" if guided else "unguided-json-object",
+        "contractDirectiveSha256": hashlib.sha256(COURSEMAPPER_CONTRACT_DIRECTIVE.encode()).hexdigest(),
         "fixtures": str(fixtures_path.resolve()),
         "count": len(rows),
+        "fixtureSet": fixture_set,
         "contractPassCount": len(passing),
         "contractPassRate": len(passing) / len(rows) if rows else 0.0,
         "meanQualityScore": sum(row["qualityScore"] for row in rows) / len(rows) if rows else 0.0,
@@ -175,9 +298,27 @@ def evaluate_endpoint(
 def compare_reports(base_path: Path, adapter_path: Path, output: Path) -> dict[str, Any]:
     base = json.loads(base_path.read_text(encoding="utf-8"))
     adapter = json.loads(adapter_path.read_text(encoding="utf-8"))
-    same_count = base.get("count") == adapter.get("count") and int(adapter.get("count", 0)) >= 20
+    expected_kinds = {"key-term": 12, "lesson": 12, "mc-item": 12, "source-bundle": 12}
+    base_set = base.get("fixtureSet") or {}
+    adapter_set = adapter.get("fixtureSet") or {}
+    same_fixture_set = (
+        base.get("count") == adapter.get("count") == 48
+        and base_set.get("sourceSha256") == adapter_set.get("sourceSha256")
+        and base_set.get("selectedIdsSha256") == adapter_set.get("selectedIdsSha256")
+    )
     checks = {
-        "sameFixtureCountAndAtLeast20": same_count,
+        "samePinned48FixtureSet": same_fixture_set,
+        "sameCourseMapperSchemaMode": (
+            base.get("responseMode") == adapter.get("responseMode") == "coursemapper-json-schema"
+        ),
+        "sameCourseMapperContractDirective": (
+            base.get("contractDirectiveSha256")
+            == adapter.get("contractDirectiveSha256")
+            == hashlib.sha256(COURSEMAPPER_CONTRACT_DIRECTIVE.encode()).hexdigest()
+        ),
+        "adapterFixturesTestOnlyAndKindBalanced": (
+            adapter_set.get("splits") == {"test": 48} and adapter_set.get("byKind") == expected_kinds
+        ),
         "adapterContractPassAtLeast90Percent": adapter.get("contractPassRate", 0) >= 0.9,
         "adapterContractNotWorse": adapter.get("contractPassRate", 0) >= base.get("contractPassRate", 0),
         "adapterReferenceF1NotWorse": adapter.get("meanReferenceF1", 0) >= base.get("meanReferenceF1", 0),
@@ -196,6 +337,7 @@ def compare_reports(base_path: Path, adapter_path: Path, output: Path) -> dict[s
 
 
 def coursemapper_smoke(endpoint: str, output: Path, *, model: str = SCION_MODEL_ID) -> dict[str, Any]:
+    cors = browser_preflight(endpoint)
     models = wait_until_ready(endpoint)
     messages = [
         {
@@ -212,31 +354,32 @@ def coursemapper_smoke(endpoint: str, output: Path, *, model: str = SCION_MODEL_
             ),
         },
     ]
-    response = _request_json(
-        endpoint.rstrip("/") + "/v1/chat/completions",
+    stream = stream_chat_completion(
+        endpoint,
         {
             "model": model,
             "messages": messages,
             "temperature": 0,
             "max_tokens": 768,
-            "response_format": {"type": "json_object"},
-            "stream": False,
+            "response_format": response_format("mc-item"),
+            "stream": True,
         },
-        timeout=600,
     )
-    content = _assistant_content(response)
+    content = stream["content"]
     try:
         parsed = json.loads(content)
-        issues = validate_response("mc-item", parsed)
+        issues = cors["issues"] + validate_response("mc-item", parsed)
     except json.JSONDecodeError:
         parsed = None
-        issues = ["invalid-json"]
+        issues = cors["issues"] + ["invalid-json"]
     result = {
         "schemaVersion": 1,
         "status": "pass" if not issues else "fail",
         "endpoint": endpoint,
         "model": model,
         "modelsResponse": models,
+        "browserPreflight": cors,
+        "streamingResponse": {key: value for key, value in stream.items() if key != "content"},
         "issues": issues,
         "response": parsed,
         "rawResponse": content if parsed is None else None,
