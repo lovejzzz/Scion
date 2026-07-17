@@ -177,6 +177,28 @@ def _dataset_identity(data_dir: Path) -> dict[str, Any]:
     return files
 
 
+def _tier_update_hyperparameters(tier: str) -> dict[str, float | int]:
+    """Return the capacity-scaled LoRA update for each student.
+
+    The 12B student exposes substantially more adapted weights per rank than
+    E2B. A rank-16, 2e-5 run memorized the research corpus within a few dozen
+    steps and degenerated on held-out structured generation. Keep Pro's update
+    deliberately narrower and gentler so it teaches the contract without
+    overwhelming the stronger base model.
+    """
+
+    if tier == "lite":
+        return {"learningRate": 0.00002, "loraRank": 8, "loraAlpha": 16, "loraDropout": 0}
+    if tier == "pro":
+        return {
+            "learningRate": 0.00001,
+            "loraRank": 4,
+            "loraAlpha": 4,
+            "loraDropout": 0.05,
+        }
+    raise ValueError("tier must be lite or pro")
+
+
 def build_training_plan(
     *,
     tier: str,
@@ -202,13 +224,14 @@ def build_training_plan(
     if dataset_manifest.get("status") != "research-ready":
         raise RuntimeError("training requires a research-ready dataset manifest")
     repository = _repository_identity(Path.cwd())
+    tier_update = _tier_update_hyperparameters(tier)
     hyperparameters = {
         "trainingMode": "orpo",
         "split": "train",
         "validationSplit": "validation",
         "iterations": iterations,
         "batchSize": 1,
-        "learningRate": 0.00002,
+        "learningRate": tier_update["learningRate"],
         "stepsPerReport": 1 if iterations <= 10 else 20,
         "stepsPerEval": 5 if iterations <= 10 else 100,
         "stepsPerSave": max(5, min(100, iterations)),
@@ -216,9 +239,9 @@ def build_training_plan(
         "maxSequenceLength": 2048,
         "gradientCheckpointing": True,
         "gradientAccumulationSteps": 2,
-        "loraRank": 8 if tier == "lite" else 16,
-        "loraAlpha": 16,
-        "loraDropout": 0,
+        "loraRank": tier_update["loraRank"],
+        "loraAlpha": tier_update["loraAlpha"],
+        "loraDropout": tier_update["loraDropout"],
         "beta": 0.1,
         "epsilon": 1e-8,
     }

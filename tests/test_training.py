@@ -5,7 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from scion.training import _dataset_identity, _stable_json, student_model_type
+from scion.training import (
+    _dataset_identity,
+    _stable_json,
+    _tier_update_hyperparameters,
+    student_model_type,
+)
 
 
 def test_training_identity_json_matches_javascript_number_spelling() -> None:
@@ -19,6 +24,19 @@ def test_student_model_type_is_tier_specific() -> None:
     assert student_model_type("pro") == "gemma4_unified"
     with pytest.raises(ValueError, match="tier"):
         student_model_type("unknown")
+
+
+def test_pro_uses_conservative_low_rank_update() -> None:
+    pro = _tier_update_hyperparameters("pro")
+    assert pro == {
+        "learningRate": 0.00001,
+        "loraRank": 4,
+        "loraAlpha": 4,
+        "loraDropout": 0.05,
+    }
+    assert _tier_update_hyperparameters("lite")["loraRank"] == 8
+    with pytest.raises(ValueError, match="tier"):
+        _tier_update_hyperparameters("unknown")
 
 
 def test_dataset_identity_requires_all_three_nonempty_splits(tmp_path: Path) -> None:
